@@ -2,7 +2,17 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
-import { LoaderCircle, Plus, Trash2, Send, Check, Monitor, Moon, Sun } from "lucide-react";
+import {
+  LoaderCircle,
+  Plus,
+  Trash2,
+  Send,
+  Check,
+  Monitor,
+  Moon,
+  Sun,
+  BellRing,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { Category, PaymentMethod } from "@/db/schema";
 import type { AppSettings } from "@/lib/settings";
@@ -11,6 +21,7 @@ import { APP_VERSION } from "@/lib/version";
 import {
   saveGeneralSettings,
   sendTestNotification,
+  runRemindersNow,
   addCategory,
   updateCategory,
   deleteCategory,
@@ -84,6 +95,17 @@ function GeneralCard({ settings }: { settings: AppSettings }) {
       const res = await sendTestNotification();
       if (res.error) toast.error(res.error);
       else toast.success("Test notification sent");
+    });
+  }
+
+  function runReminders() {
+    startTest(async () => {
+      const res = await runRemindersNow();
+      if (res.error) toast.error(res.error);
+      else if (res.sent && res.sent > 0)
+        toast.success(`Reminder sent for ${res.sent} subscription${res.sent > 1 ? "s" : ""}`);
+      else
+        toast.info("No reminders due — nothing renews today or in your lead-days window");
     });
   }
 
@@ -172,6 +194,16 @@ function GeneralCard({ settings }: { settings: AppSettings }) {
                 <Send className="size-4" />
               )}
               Send test
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={runReminders}
+              disabled={testing}
+              className="gap-1.5"
+            >
+              <BellRing className="size-4" />
+              Run reminders now
             </Button>
           </div>
         </form>

@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { categories, paymentMethods } from "@/db/schema";
 import { saveSettings, getSettings } from "@/lib/settings";
 import { sendNtfy } from "@/lib/notify";
+import { runDailyReminders } from "@/lib/reminders";
 
 export type ActionState = { ok?: boolean; error?: string };
 
@@ -53,6 +54,15 @@ export async function sendTestNotification(): Promise<ActionState> {
     tags: ["white_check_mark"],
   });
   return err ? { error: err } : { ok: true };
+}
+
+/** Run the renewal-reminder check right now (same logic as the daily job). */
+export async function runRemindersNow(): Promise<ActionState & { sent?: number }> {
+  const s = getSettings();
+  if (!s.ntfy_topic) return { error: "Set an ntfy topic first." };
+  const res = await runDailyReminders();
+  if (res.error) return { error: res.error };
+  return { ok: true, sent: res.sent };
 }
 
 // --- Categories ---
