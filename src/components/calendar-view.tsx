@@ -79,22 +79,28 @@ export function CalendarView({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
           <p className="text-sm text-muted-foreground">When your subscriptions renew.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center justify-center gap-2 sm:justify-end">
           <Button variant="outline" size="icon" onClick={() => setCursor(subMonths(cursor, 1))} aria-label="Previous month">
             <ChevronLeft className="size-4" />
           </Button>
-          <span className="min-w-36 text-center text-sm font-medium">
+          <span className="min-w-32 text-center text-sm font-medium">
             {format(cursor, "MMMM yyyy")}
           </span>
           <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, 1))} aria-label="Next month">
             <ChevronRight className="size-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setCursor(startOfMonth(new Date()))}>
+          {/* Absolute on mobile so the month label stays dead-centre; inline on desktop. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCursor(startOfMonth(new Date()))}
+            className="absolute right-0 sm:static"
+          >
             Today
           </Button>
         </div>
@@ -121,22 +127,27 @@ export function CalendarView({
                     key={key}
                     type="button"
                     onClick={() => setSelected(key)}
+                    aria-current={isSelected ? "date" : undefined}
                     className={cn(
-                      "flex aspect-square flex-col items-center justify-start gap-1 rounded-lg border border-transparent p-1.5 text-sm transition-colors",
+                      "relative flex aspect-square items-center justify-center rounded-xl text-sm transition-colors",
                       inMonth ? "text-foreground" : "text-muted-foreground/40",
-                      isSelected ? "border-primary bg-primary/5" : "hover:bg-muted",
+                      isSelected && !isToday ? "bg-primary/10" : "hover:bg-muted",
                     )}
                   >
                     <span
                       className={cn(
-                        "flex size-6 items-center justify-center rounded-full text-xs",
-                        isToday && "bg-primary font-semibold text-primary-foreground",
+                        "flex size-8 items-center justify-center rounded-full transition-colors",
+                        isToday
+                          ? "bg-primary font-semibold text-primary-foreground"
+                          : isSelected
+                            ? "font-semibold text-primary"
+                            : "",
                       )}
                     >
                       {format(day, "d")}
                     </span>
                     {entries.length > 0 ? (
-                      <div className="flex flex-wrap items-center justify-center gap-0.5">
+                      <div className="absolute inset-x-0 bottom-1 flex items-center justify-center gap-0.5">
                         {entries.slice(0, 3).map((e, i) => (
                           <span
                             key={i}
