@@ -59,10 +59,20 @@ export async function verifySessionToken(token: string | undefined): Promise<boo
   }
 }
 
-export const sessionCookieOptions = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  path: "/",
-  maxAge: SESSION_MAX_AGE,
-};
+/**
+ * Session cookie options. `secure` MUST reflect the actual request scheme, not
+ * NODE_ENV: this app is typically accessed over plain HTTP on a LAN (e.g.
+ * http://nas-ip:8480), and browsers silently drop `Secure` cookies over HTTP
+ * (except on localhost) — which logs you straight back out. Only mark the
+ * cookie Secure when the request really came over HTTPS (e.g. behind a
+ * TLS-terminating reverse proxy that sets x-forwarded-proto).
+ */
+export function sessionCookieOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure,
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+  };
+}

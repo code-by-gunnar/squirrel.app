@@ -27,6 +27,11 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except static assets and the favicon.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.png$).*)"],
+  // Run on everything except static assets, the favicon, and the PWA files.
+  // The web manifest, service worker and icons must stay public even when a
+  // password is set, or the browser can't install/parse the PWA (it would get
+  // redirected to the login HTML instead of the JSON/JS).
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw.js|.*\\.png$).*)",
+  ],
 };

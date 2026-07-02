@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   SESSION_COOKIE,
@@ -10,6 +10,13 @@ import {
 } from "@/lib/auth";
 
 export type LoginState = { error?: string };
+
+/** True only when the request actually arrived over HTTPS. */
+async function isHttps(): Promise<boolean> {
+  const h = await headers();
+  const proto = h.get("x-forwarded-proto");
+  return proto?.split(",")[0].trim() === "https";
+}
 
 export async function login(
   _prev: LoginState,
@@ -23,7 +30,7 @@ export async function login(
 
   const token = await createSessionToken();
   const store = await cookies();
-  store.set(SESSION_COOKIE, token, sessionCookieOptions);
+  store.set(SESSION_COOKIE, token, sessionCookieOptions(await isHttps()));
   redirect("/");
 }
 
