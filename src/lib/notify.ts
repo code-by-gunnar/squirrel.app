@@ -12,8 +12,10 @@ export type NtfyMessage = {
  * Publish a notification to an ntfy topic. Returns an error string on failure,
  * or null on success. Server + topic come from settings.
  *
- * ntfy accepts a plain-text body plus metadata via headers. Non-ASCII titles
- * must be avoided in headers, so we keep titles simple.
+ * We use ntfy's JSON publishing API (title/message in the JSON body, posted to
+ * the server root) rather than HTTP headers. Headers must be ASCII, so putting
+ * the title in a header would throw or garble for subscription names with
+ * accents or emoji (e.g. "Café"). JSON handles UTF-8 cleanly.
  */
 export async function sendNtfy(
   server: string,
@@ -23,20 +25,21 @@ export async function sendNtfy(
   if (!topic) return "No ntfy topic configured.";
 
   const base = (server || "https://ntfy.sh").replace(/\/+$/, "");
-  const url = `${base}/${encodeURIComponent(topic)}`;
 
-  const headers: Record<string, string> = {
-    Title: msg.title,
+  const payload: Record<string, unknown> = {
+    topic,
+    title: msg.title,
+    message: msg.message,
   };
-  if (msg.tags?.length) headers.Tags = msg.tags.join(",");
-  if (msg.priority) headers.Priority = String(msg.priority);
-  if (msg.clickUrl) headers.Click = msg.clickUrl;
+  if (msg.tags?.length) payload.tags = msg.tags;
+  if (msg.priority) payload.priority = msg.priority;
+  if (msg.clickUrl) payload.click = msg.clickUrl;
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(base, {
       method: "POST",
-      headers,
-      body: msg.message,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       return `ntfy responded ${res.status} ${res.statusText}`;
