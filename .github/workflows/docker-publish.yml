@@ -57,3 +57,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # GHCR can reject the extra attestation manifests with
+          # "error writing layer blob: not_found"; disable them.
+          provenance: false
+          sbom: false
