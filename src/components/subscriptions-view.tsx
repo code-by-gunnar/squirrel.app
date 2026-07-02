@@ -63,13 +63,11 @@ function renewalLabel(days: number): { text: string; tone: string } {
 function SubLogo({ sub }: { sub: EnrichedSubscription }) {
   const color = sub.categoryColor ?? "#64748b";
   if (sub.logoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img
-        src={sub.logoUrl}
-        alt=""
-        className="size-10 shrink-0 rounded-xl object-cover"
-      />
+      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={sub.logoUrl} alt="" className="size-full object-contain p-1" />
+      </div>
     );
   }
   return (

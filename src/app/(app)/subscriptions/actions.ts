@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { BILLING_CYCLES } from "@/lib/billing";
+import { fetchLogoDataUri } from "@/lib/logo";
 
 const optionalString = z
   .string()
@@ -76,6 +77,11 @@ export async function saveSubscription(
 
   const values = parsed.data;
 
+  // Auto-fetch a logo when the user hasn't provided/kept one.
+  if (!values.logoUrl) {
+    values.logoUrl = await fetchLogoDataUri(values.name, values.url);
+  }
+
   try {
     if (id) {
       db.update(subscriptions).set(values).where(eq(subscriptions.id, id)).run();
@@ -109,4 +115,14 @@ export async function toggleActive(id: number, active: boolean): Promise<SaveSta
   revalidatePath("/subscriptions");
   revalidatePath("/");
   return { ok: true };
+}
+
+/** Manually look up a logo for the add/edit form (preview before saving). */
+export async function fetchLogo(
+  name: string,
+  url: string,
+): Promise<{ logoUrl?: string; error?: string }> {
+  if (!name.trim() && !url.trim()) return { error: "Enter a name or website first" };
+  const logoUrl = await fetchLogoDataUri(name, url || null);
+  return logoUrl ? { logoUrl } : { error: "No logo found — try adding the website" };
 }

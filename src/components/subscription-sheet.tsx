@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { LoaderCircle, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import type { Subscription, Category, PaymentMethod } from "@/db/schema";
-import { saveSubscription, type SaveState } from "@/app/(app)/subscriptions/actions";
+import {
+  saveSubscription,
+  fetchLogo,
+  type SaveState,
+} from "@/app/(app)/subscriptions/actions";
 import { BILLING_CYCLES } from "@/lib/billing";
 import { COMMON_CURRENCIES } from "@/lib/currency";
 import {
@@ -66,16 +70,37 @@ export function SubscriptionSheet({
   const [paymentMethodId, setPaymentMethodId] = useState(
     subscription?.paymentMethodId ? String(subscription.paymentMethodId) : "none",
   );
+  const [name, setName] = useState(subscription?.name ?? "");
+  const [url, setUrl] = useState(subscription?.url ?? "");
+  const [logoUrl, setLogoUrl] = useState<string | null>(subscription?.logoUrl ?? null);
+  const [fetchingLogo, startFetchLogo] = useTransition();
 
-  // Reset local state when the target subscription changes.
+  // Reset local state every time the sheet opens (or the target changes).
+  // Keyed on `open` too, otherwise opening "Add" twice in a row keeps the
+  // previous entry's state (e.g. its fetched logo leaks onto the next one).
   useEffect(() => {
+    if (!open) return;
     setCurrency(subscription?.currencyCode ?? baseCurrency);
     setCycle(subscription?.billingCycle ?? "month");
     setCategoryId(subscription?.categoryId ? String(subscription.categoryId) : "none");
     setPaymentMethodId(
       subscription?.paymentMethodId ? String(subscription.paymentMethodId) : "none",
     );
-  }, [subscription, baseCurrency]);
+    setName(subscription?.name ?? "");
+    setUrl(subscription?.url ?? "");
+    setLogoUrl(subscription?.logoUrl ?? null);
+  }, [open, subscription, baseCurrency]);
+
+  function findLogo() {
+    startFetchLogo(async () => {
+      const res = await fetchLogo(name, url);
+      if (res.error) toast.error(res.error);
+      else {
+        setLogoUrl(res.logoUrl ?? null);
+        toast.success("Logo found");
+      }
+    });
+  }
 
   useEffect(() => {
     if (state.ok) {
@@ -108,15 +133,62 @@ export function SubscriptionSheet({
           <input type="hidden" name="categoryId" value={categoryId} />
           <input type="hidden" name="paymentMethodId" value={paymentMethodId} />
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              name="name"
-              required
-              defaultValue={subscription?.name ?? ""}
-              placeholder="Netflix"
-            />
+          <div className="flex items-end gap-3">
+            <div
+              className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40"
+              aria-hidden
+            >
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="size-full object-contain p-1.5" />
+              ) : (
+                <span className="text-xl font-semibold text-muted-foreground">
+                  {name.trim().charAt(0).toUpperCase() || "?"}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                name="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Netflix"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={findLogo}
+              disabled={fetchingLogo}
+              className="gap-1.5"
+            >
+              {fetchingLogo ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <ImageIcon className="size-4" />
+              )}
+              {logoUrl ? "Refetch logo" : "Fetch logo"}
+            </Button>
+            {logoUrl ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setLogoUrl(null)}
+                className="gap-1.5 text-muted-foreground"
+              >
+                <X className="size-4" />
+                Remove
+              </Button>
+            ) : null}
+            <span className="text-xs text-muted-foreground">or auto-fetched on save</span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -234,7 +306,8 @@ export function SubscriptionSheet({
                 id="url"
                 name="url"
                 type="url"
-                defaultValue={subscription?.url ?? ""}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://…"
               />
             </div>
@@ -259,7 +332,7 @@ export function SubscriptionSheet({
             />
           </div>
 
-          <input type="hidden" name="logoUrl" value={subscription?.logoUrl ?? ""} />
+          <input type="hidden" name="logoUrl" value={logoUrl ?? ""} />
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
