@@ -7,8 +7,11 @@ WORKDIR /app
 # unavailable for this platform; harmless otherwise.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
+# Use `npm install` (not `npm ci`): a Windows-generated lockfile omits some
+# Linux-only optional native deps (Tailwind oxide / @emnapi), which `npm ci`
+# rejects. `npm install` resolves the correct platform tree here.
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # --- Build ---
 FROM node:24-bookworm-slim AS builder
