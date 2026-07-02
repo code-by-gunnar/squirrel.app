@@ -33,29 +33,39 @@ to clone; you just paste a Compose stack.
 ```yaml
 services:
   squirrel:
-    image: ghcr.io/code-by-gunnar/squirrel:latest
+    image: ghcr.io/code-by-gunnar/squirrel:v1.0.0
     container_name: squirrel
     restart: unless-stopped
     ports:
-      - "8480:3000" # host:container — open http://<nas-ip>:8480
+      - "8480:3000"
     environment:
-      # Set a password to require login. Leave empty for open access on a trusted LAN.
       APP_PASSWORD: "change-me"
-      # Any long random string. Generate one with: openssl rand -base64 32
       SESSION_SECRET: "replace-with-a-long-random-string"
       BASE_CURRENCY: "GBP"
       TZ: "Europe/London"
     volumes:
-      # Your SQLite database. A named volume "just works"; to keep the data on a
-      # specific dataset instead, swap for a bind mount, e.g.
-      #   - /mnt/tank/apps/squirrel:/app/data
       - squirrel-data:/app/data
-
 volumes:
   squirrel-data:
 ```
 
-Then open `http://<your-nas-ip>:8480`.
+Then open `http://YOUR-NAS-IP:8480`.
+
+Before deploying, edit two values:
+
+- `APP_PASSWORD` — your login password. Leave it as `""` for open access on a
+  trusted LAN.
+- `SESSION_SECRET` — any long random string. Generate one with
+  `openssl rand -base64 32` (keep the surrounding quotes when you paste it in).
+
+The `8480:3000` line is `host:container` — change `8480` if that port is taken.
+The database lives in the `squirrel-data` named volume; to keep it on a specific
+dataset instead, replace that volume line with a bind mount, e.g.
+`- /mnt/tank/apps/squirrel:/app/data`.
+
+> **Tip:** paste the YAML exactly as shown. Don't add inline `#` comments with
+> punctuation like em dashes or `<angle brackets>` — some stack editors reject
+> non-ASCII characters with a "yaml: construct errors" message.
 
 **Updating:** pull the new image and recreate — `docker compose pull && docker
 compose up -d` (Dockge/Portainer have an "update" button that does this). Your
