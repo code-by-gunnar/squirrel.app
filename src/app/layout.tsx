@@ -33,8 +33,9 @@ export const metadata: Metadata = {
     title: "Squirrel",
     statusBarStyle: "default",
   },
+  // Transparent, scalable SVG favicon (src/app/icon.svg) + opaque apple icon.
   icons: {
-    icon: "/icon-192.png",
+    icon: "/icon.svg",
     apple: "/apple-touch-icon.png",
   },
 };
