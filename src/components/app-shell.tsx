@@ -42,8 +42,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-svh w-full">
-      {/* Desktop sidebar */}
+    <div className="flex h-svh w-full overflow-hidden">
+      {/* Desktop sidebar — fixed to the viewport; only the main area scrolls */}
       <aside className="hidden w-64 shrink-0 flex-col border-r bg-card/50 md:flex">
         <div className="flex h-16 items-center border-b px-4">
           <Brand />

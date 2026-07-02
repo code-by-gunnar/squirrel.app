@@ -33,7 +33,7 @@ to clone; you just paste a Compose stack.
 ```yaml
 services:
   squirrel:
-    image: ghcr.io/code-by-gunnar/squirrel:v1.0.0
+    image: ghcr.io/code-by-gunnar/squirrel:latest
     container_name: squirrel
     restart: unless-stopped
     ports:
