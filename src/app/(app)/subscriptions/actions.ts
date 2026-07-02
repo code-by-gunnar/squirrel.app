@@ -6,7 +6,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
 import { BILLING_CYCLES } from "@/lib/billing";
-import { fetchLogoDataUri } from "@/lib/logo";
+import {
+  fetchLogoDataUri,
+  searchLogoCandidates,
+  type LogoCandidate,
+} from "@/lib/logo";
 
 const optionalString = z
   .string()
@@ -125,4 +129,13 @@ export async function fetchLogo(
   if (!name.trim() && !url.trim()) return { error: "Enter a name or website first" };
   const logoUrl = await fetchLogoDataUri(name, url || null);
   return logoUrl ? { logoUrl } : { error: "No logo found — try adding the website" };
+}
+
+/** Return several logo candidates for a query so the user can pick one. */
+export async function searchLogos(
+  query: string,
+): Promise<{ candidates?: LogoCandidate[]; error?: string }> {
+  if (!query.trim()) return { error: "Type a name, domain, or website to search" };
+  const candidates = await searchLogoCandidates(query);
+  return candidates.length ? { candidates } : { error: "No logos found for that search" };
 }

@@ -1,14 +1,16 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { LoaderCircle, ImageIcon, X } from "lucide-react";
+import { LoaderCircle, ImageIcon, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Subscription, Category, PaymentMethod } from "@/db/schema";
 import {
   saveSubscription,
-  fetchLogo,
+  searchLogos,
   type SaveState,
 } from "@/app/(app)/subscriptions/actions";
+import type { LogoCandidate } from "@/lib/logo";
+import { cn } from "@/lib/utils";
 import { BILLING_CYCLES } from "@/lib/billing";
 import { COMMON_CURRENCIES } from "@/lib/currency";
 import {
@@ -73,7 +75,10 @@ export function SubscriptionSheet({
   const [name, setName] = useState(subscription?.name ?? "");
   const [url, setUrl] = useState(subscription?.url ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(subscription?.logoUrl ?? null);
-  const [fetchingLogo, startFetchLogo] = useTransition();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [logoQuery, setLogoQuery] = useState("");
+  const [candidates, setCandidates] = useState<LogoCandidate[]>([]);
+  const [searching, startSearch] = useTransition();
 
   // Reset local state every time the sheet opens (or the target changes).
   // Keyed on `open` too, otherwise opening "Add" twice in a row keeps the
@@ -89,17 +94,33 @@ export function SubscriptionSheet({
     setName(subscription?.name ?? "");
     setUrl(subscription?.url ?? "");
     setLogoUrl(subscription?.logoUrl ?? null);
+    setPickerOpen(false);
+    setCandidates([]);
+    setLogoQuery("");
   }, [open, subscription, baseCurrency]);
 
-  function findLogo() {
-    startFetchLogo(async () => {
-      const res = await fetchLogo(name, url);
-      if (res.error) toast.error(res.error);
-      else {
-        setLogoUrl(res.logoUrl ?? null);
-        toast.success("Logo found");
+  function runLogoSearch(query: string) {
+    if (!query.trim()) {
+      toast.error("Type a name, domain, or website to search");
+      return;
+    }
+    startSearch(async () => {
+      const res = await searchLogos(query);
+      if (res.error) {
+        setCandidates([]);
+        toast.error(res.error);
+      } else {
+        setCandidates(res.candidates ?? []);
       }
     });
+  }
+
+  function openLogoPicker() {
+    const q = url.trim() || name.trim();
+    setLogoQuery(q);
+    setPickerOpen(true);
+    setCandidates([]);
+    if (q) runLogoSearch(q);
   }
 
   useEffect(() => {
@@ -175,16 +196,11 @@ export function SubscriptionSheet({
               type="button"
               variant="outline"
               size="sm"
-              onClick={findLogo}
-              disabled={fetchingLogo}
+              onClick={() => (pickerOpen ? setPickerOpen(false) : openLogoPicker())}
               className="gap-1.5"
             >
-              {fetchingLogo ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <ImageIcon className="size-4" />
-              )}
-              {logoUrl ? "Refetch logo" : "Fetch logo"}
+              <ImageIcon className="size-4" />
+              {logoUrl ? "Change logo" : "Find logo"}
             </Button>
             {logoUrl ? (
               <Button
@@ -200,6 +216,81 @@ export function SubscriptionSheet({
             ) : null}
             <span className="text-xs text-muted-foreground">or auto-fetched on save</span>
           </div>
+
+          {pickerOpen ? (
+            <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={logoQuery}
+                    onChange={(e) => setLogoQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        runLogoSearch(logoQuery);
+                      }
+                    }}
+                    placeholder="Brand, domain, or website (e.g. fly.io)"
+                    className="h-8 pl-8"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => runLogoSearch(logoQuery)}
+                  disabled={searching}
+                >
+                  {searching ? <LoaderCircle className="size-4 animate-spin" /> : "Search"}
+                </Button>
+              </div>
+
+              {searching ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
+                  <LoaderCircle className="size-4 animate-spin" />
+                  Searching…
+                </div>
+              ) : candidates.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                    {candidates.map((c, i) => {
+                      const selected = logoUrl === c.dataUri;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          title={`${c.domain} · ${c.source}`}
+                          onClick={() => {
+                            setLogoUrl(c.dataUri);
+                            setPickerOpen(false);
+                          }}
+                          className={cn(
+                            "relative flex aspect-square items-center justify-center overflow-hidden rounded-lg border bg-background p-1.5 transition-colors hover:border-primary",
+                            selected && "border-primary ring-2 ring-primary/30",
+                          )}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={c.dataUri} alt={c.domain} className="size-full object-contain" />
+                          {selected ? (
+                            <span className="absolute right-0.5 top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                              <Check className="size-3" />
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {candidates.length} found — tap one to use it.
+                  </p>
+                </>
+              ) : (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No logos yet. Try the exact domain, e.g. <code>fly.io</code>.
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
