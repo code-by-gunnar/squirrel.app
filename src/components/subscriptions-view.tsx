@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Search,
   CreditCard,
+  Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, PaymentMethod, Subscription } from "@/db/schema";
@@ -135,6 +136,22 @@ export function SubscriptionsView({
     setDeleteTarget(null);
   }
 
+  // Value -> label maps so closed filters show the label, not the raw value.
+  const categoryFilterItems: Record<string, string> = {
+    all: "All categories",
+    ...Object.fromEntries(categories.map((c) => [String(c.id), c.name])),
+  };
+  const statusItems: Record<string, string> = {
+    active: "Active",
+    inactive: "Inactive",
+    all: "All",
+  };
+  const sortItems: Record<string, string> = {
+    renewal: "Next renewal",
+    name: "Name",
+    price: "Price (high–low)",
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -162,7 +179,11 @@ export function SubscriptionsView({
           />
         </div>
         <div className="grid grid-cols-3 gap-2 sm:flex sm:w-auto">
-          <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? "all")}>
+          <Select
+            value={categoryFilter}
+            onValueChange={(v) => setCategoryFilter(v ?? "all")}
+            items={categoryFilterItems}
+          >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
@@ -175,7 +196,11 @@ export function SubscriptionsView({
               ))}
             </SelectContent>
           </Select>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? "active")}>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v ?? "active")}
+            items={statusItems}
+          >
             <SelectTrigger className="w-full sm:w-32">
               <SelectValue />
             </SelectTrigger>
@@ -185,7 +210,11 @@ export function SubscriptionsView({
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sort} onValueChange={(v) => v && setSort(v as SortKey)}>
+          <Select
+            value={sort}
+            onValueChange={(v) => v && setSort(v as SortKey)}
+            items={sortItems}
+          >
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
@@ -215,25 +244,12 @@ export function SubscriptionsView({
               >
                 <div className="flex items-start gap-3">
                   <SubLogo sub={sub} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium">{sub.name}</p>
-                      {!sub.active ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Inactive
-                        </Badge>
-                      ) : null}
-                    </div>
-                    {sub.categoryName ? (
-                      <span
-                        className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-                      >
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: sub.categoryColor ?? "#64748b" }}
-                        />
-                        {sub.categoryName}
-                      </span>
+                  <div className="flex min-w-0 flex-1 items-center gap-2 self-center">
+                    <p className="truncate font-medium">{sub.name}</p>
+                    {!sub.active ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Inactive
+                      </Badge>
                     ) : null}
                   </div>
 
@@ -297,6 +313,26 @@ export function SubscriptionsView({
                     <p className="text-xs text-muted-foreground">{sub.nextRenewal}</p>
                   </div>
                 </div>
+
+                {sub.categoryName || sub.paymentMethodName ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
+                    {sub.categoryName ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ backgroundColor: sub.categoryColor ?? "#64748b" }}
+                        />
+                        {sub.categoryName}
+                      </span>
+                    ) : null}
+                    {sub.paymentMethodName ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <Wallet className="size-3.5" />
+                        {sub.paymentMethodName}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             );
           })}

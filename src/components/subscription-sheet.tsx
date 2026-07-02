@@ -114,6 +114,16 @@ export function SubscriptionSheet({
 
   const today = new Date().toISOString().slice(0, 10);
 
+  // Value -> label maps so the closed Select shows the name, not the raw id.
+  const categoryItems: Record<string, string> = {
+    none: "None",
+    ...Object.fromEntries(categories.map((c) => [String(c.id), c.name])),
+  };
+  const paymentItems: Record<string, string> = {
+    none: "None",
+    ...Object.fromEntries(paymentMethods.map((p) => [String(p.id), p.name])),
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-md">
@@ -235,7 +245,11 @@ export function SubscriptionSheet({
             </div>
             <div className="space-y-2">
               <Label>Cycle</Label>
-              <Select value={cycle} onValueChange={(v) => setCycle(v ?? "month")}>
+              <Select
+                value={cycle}
+                onValueChange={(v) => setCycle(v ?? "month")}
+                items={CYCLE_LABELS}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -264,7 +278,11 @@ export function SubscriptionSheet({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Category</Label>
-              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "none")}>
+              <Select
+                value={categoryId}
+                onValueChange={(v) => setCategoryId(v ?? "none")}
+                items={categoryItems}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
@@ -283,6 +301,7 @@ export function SubscriptionSheet({
               <Select
                 value={paymentMethodId}
                 onValueChange={(v) => setPaymentMethodId(v ?? "none")}
+                items={paymentItems}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="None" />
