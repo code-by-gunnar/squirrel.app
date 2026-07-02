@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Category, PaymentMethod } from "@/db/schema";
 import type { AppSettings } from "@/lib/settings";
 import { COMMON_CURRENCIES } from "@/lib/currency";
+import { APP_VERSION } from "@/lib/version";
 import {
   saveGeneralSettings,
   sendTestNotification,
@@ -60,6 +61,10 @@ export function SettingsView({
       <AppearanceCard />
       <CategoriesCard categories={categories} />
       <PaymentMethodsCard paymentMethods={paymentMethods} />
+
+      <p className="pt-2 text-center text-xs text-muted-foreground">
+        🐿️ Squirrel v{APP_VERSION}
+      </p>
     </div>
   );
 }

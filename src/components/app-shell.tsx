@@ -11,6 +11,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_VERSION } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/login/actions";
@@ -78,6 +79,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               Sign out
             </Button>
           </form>
+          <p className="px-3 pt-2 text-xs text-muted-foreground/70">
+            Squirrel v{APP_VERSION}
+          </p>
         </div>
       </aside>
 
