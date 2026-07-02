@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+data
+drizzle.config.ts
+*.md
+docs
+.playwright-mcp
+*.png
+.env*
+.vscode
+.idea
+npm-debug.log*

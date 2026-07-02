@@ -1,0 +1,31 @@
+services:
+  squirrel:
+    build: .
+    # Or use a prebuilt image once you push one:
+    # image: squirrel:latest
+    container_name: squirrel
+    restart: unless-stopped
+    ports:
+      - "8480:3000"
+    environment:
+      # Set a password to require login. Leave unset for open access on a
+      # trusted LAN. Change SESSION_SECRET to any long random string.
+      APP_PASSWORD: "${APP_PASSWORD:-}"
+      SESSION_SECRET: "${SESSION_SECRET:-change-me-to-a-long-random-string}"
+      BASE_CURRENCY: "${BASE_CURRENCY:-GBP}"
+      TZ: "${TZ:-Europe/London}"
+    volumes:
+      # SQLite database persists here across upgrades.
+      - ./data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
