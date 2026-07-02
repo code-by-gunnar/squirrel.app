@@ -1,8 +1,9 @@
 services:
   squirrel:
+    # This file builds from source (for development). For a NAS, paste the
+    # prebuilt-image stack from the README instead:
+    #   image: ghcr.io/code-by-gunnar/squirrel:latest
     build: .
-    # Or use a prebuilt image once you push one:
-    # image: squirrel:latest
     container_name: squirrel
     restart: unless-stopped
     ports:

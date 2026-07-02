@@ -20,19 +20,63 @@ Built to run as a single Docker container on a home NAS. Single user, no cloud.
 - **Light & dark** themes, responsive, keyboard-friendly.
 - **Optional password** login, or open access on a trusted LAN.
 
-## Quick start (Docker Compose)
+## Install on a NAS / homelab (recommended)
+
+Squirrel ships as a prebuilt multi-arch image on the GitHub Container Registry,
+so **any** Docker host runs the same thing — TrueNAS SCALE, Unraid, Synology, a
+Raspberry Pi, or plain `docker compose`. There's nothing to build and no source
+to clone; you just paste a Compose stack.
+
+**Paste this stack** (TrueNAS "Custom App → Install via YAML", Dockge, Portainer
+"Stacks", or a `compose.yaml` file), edit the two secrets, and deploy:
+
+```yaml
+services:
+  squirrel:
+    image: ghcr.io/code-by-gunnar/squirrel:latest
+    container_name: squirrel
+    restart: unless-stopped
+    ports:
+      - "8480:3000" # host:container — open http://<nas-ip>:8480
+    environment:
+      # Set a password to require login. Leave empty for open access on a trusted LAN.
+      APP_PASSWORD: "change-me"
+      # Any long random string. Generate one with: openssl rand -base64 32
+      SESSION_SECRET: "replace-with-a-long-random-string"
+      BASE_CURRENCY: "GBP"
+      TZ: "Europe/London"
+    volumes:
+      # Your SQLite database. A named volume "just works"; to keep the data on a
+      # specific dataset instead, swap for a bind mount, e.g.
+      #   - /mnt/tank/apps/squirrel:/app/data
+      - squirrel-data:/app/data
+
+volumes:
+  squirrel-data:
+```
+
+Then open `http://<your-nas-ip>:8480`.
+
+**Updating:** pull the new image and recreate — `docker compose pull && docker
+compose up -d` (Dockge/Portainer have an "update" button that does this). Your
+data in the volume is preserved.
+
+> **First-time note:** the GHCR package is private until you make it public.
+> On GitHub, go to your profile → **Packages → squirrel → Package settings →
+> Change visibility → Public**. (Or, on the NAS, `docker login ghcr.io` with a
+> personal access token that has `read:packages`.)
+
+## Run from source (development)
 
 ```bash
-git clone <this repo> squirrel && cd squirrel
+git clone https://github.com/code-by-gunnar/squirrel && cd squirrel
 cp .env.example .env
 # edit .env: set APP_PASSWORD and a random SESSION_SECRET
 docker compose up -d --build
 ```
 
-Then open `http://<your-nas-ip>:8480`.
-
-The SQLite database is stored in `./data` and persists across upgrades. To
-update: `git pull && docker compose up -d --build`.
+This uses the repo's `docker-compose.yml` (which builds the image locally and
+bind-mounts `./data`). To update: `git pull && docker compose up -d --build`.
 
 ## Configuration
 
