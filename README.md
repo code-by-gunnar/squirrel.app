@@ -1,15 +1,46 @@
-# 🐿️ Squirrel
+<div align="center">
 
-A personal, self-hosted subscription tracker. Add and manage recurring
-subscriptions across any number of services, see what you spend per month and
-year, know when things renew, and get a push to your phone before they do.
+<img src="public/icon-512.png" alt="Squirrel logo" width="92" height="92" />
 
-Built to run as a single Docker container on a home NAS. Single user, no cloud.
+# Squirrel
+
+**A personal, self-hosted subscription tracker.**
+
+See what you spend each month, catch renewals before they hit, and know what
+you're still paying for, all from one small container on your own NAS.
+
+[![Self-hosted with Docker](https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white)](#install-on-a-nas--homelab-recommended)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](#tech)
+[![SQLite + Drizzle](https://img.shields.io/badge/SQLite-Drizzle-003B57?logo=sqlite&logoColor=white)](#tech)
+[![Installable PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](#access-over-https-for-pwa-install)
+
+<br/>
+
+<img src="docs/screenshot-dashboard.png" alt="Squirrel dashboard showing monthly spend, spend by category and upcoming renewals" width="840" />
+
+</div>
+
+Built to run as a single Docker container on a home NAS. Single user, no cloud,
+no account, nothing leaves home. Renewal dates are computed on read from an
+immutable start date, so nothing to sync and nothing drifts.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-subscriptions.png" alt="Subscriptions grid with brand logos, prices and status" /><br/><sub><b>Subscriptions</b> — every service with its logo, price and next renewal</sub></td>
+    <td width="50%"><img src="docs/screenshot-calendar.png" alt="Calendar view of upcoming renewals" /><br/><sub><b>Calendar</b> — see the month at a glance</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshot-dark.png" alt="Dashboard in dark mode" /><br/><sub><b>Dark mode</b> — out of the box</sub></td>
+    <td width="50%" align="center"><img src="docs/screenshot-mobile.png" alt="Squirrel installed as an app on a phone" width="230" /><br/><sub><b>Installable PWA</b> — on your phone, as an app</sub></td>
+  </tr>
+</table>
 
 ## Features
 
 - **Track subscriptions** with price, currency, billing cycle (e.g. every 3
-  months), category, payment method, start date, free-trial end and notes —
+  months), category, payment method, start date, free-trial end and notes,
   each with an auto-fetched brand logo (or pick one from a few candidates).
 - **Dashboard** — monthly & yearly spend, spend by category, upcoming renewals.
 - **Calendar** — a month view of exactly when each subscription renews.
