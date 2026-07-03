@@ -9,10 +9,12 @@ Built to run as a single Docker container on a home NAS. Single user, no cloud.
 ## Features
 
 - **Track subscriptions** with price, currency, billing cycle (e.g. every 3
-  months), category, payment method, start date, free-trial end, notes and a
-  link to the service.
+  months), category, payment method, start date, free-trial end and notes —
+  each with an auto-fetched brand logo (or pick one from a few candidates).
 - **Dashboard** — monthly & yearly spend, spend by category, upcoming renewals.
 - **Calendar** — a month view of exactly when each subscription renews.
+- **Search, filter & sort** — filter by category or status (active / cancelled /
+  free / inactive); sort by next renewal, name, or price (high–low).
 - **Multi-currency** — track subs in any currency; totals convert to your base
   currency using free daily ECB rates (Frankfurter, no API key).
 - **Renewal reminders** — a daily push to your phone via
@@ -21,6 +23,11 @@ Built to run as a single Docker container on a home NAS. Single user, no cloud.
   counted) until the end of the paid period, then automatically drops to
   inactive on that date. No more forgetting what you've cancelled but can still
   use.
+- **Free-tier tracking** — flag a service you're on the free plan for. It's kept
+  for awareness but left out of spend totals, renewals and reminders.
+- **Install as an app (PWA)** — add Squirrel to your phone's home screen for a
+  native-style experience with a bottom nav bar and slide-up forms. (Installing
+  standalone needs HTTPS — see [Access over HTTPS](#access-over-https-for-pwa-install).)
 - **Light & dark** themes, responsive, keyboard-friendly.
 - **Optional password** login, or open access on a trusted LAN.
 
@@ -79,6 +86,29 @@ data in the volume is preserved.
 > On GitHub, go to your profile → **Packages → squirrel → Package settings →
 > Change visibility → Public**. (Or, on the NAS, `docker login ghcr.io` with a
 > personal access token that has `read:packages`.)
+
+## Access over HTTPS (for PWA install)
+
+Squirrel works fine over plain `http://YOUR-NAS-IP:8480` in a browser. But to
+**install it as an app** on your phone — a home-screen icon that opens
+full-screen with no address bar — it must be served over **HTTPS**. Browsers
+only treat `https://` and `localhost` as a "secure context" and won't register
+the service worker otherwise; over plain HTTP a phone just adds a bookmark that
+opens in a browser tab.
+
+Put any reverse proxy with a valid TLS certificate in front (Nginx Proxy
+Manager, Caddy, Traefik, a Cloudflare Tunnel, or Tailscale). Two headers are
+**required**, or login will bounce you back to the sign-in page as soon as you
+navigate:
+
+```nginx
+proxy_set_header Host              $host;   # match the browser's origin
+proxy_set_header X-Forwarded-Proto $scheme; # tell Squirrel the request is HTTPS
+```
+
+Use a real hostname with a trusted certificate, not `https://<ip>` — a cert
+warning still counts as an insecure context and blocks the install. Then, on the
+phone, use the browser's **Install app** option (not "Add to Home screen").
 
 ## Run from source (development)
 
