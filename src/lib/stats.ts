@@ -22,7 +22,9 @@ export type DashboardStats = {
 export function computeDashboardStats(
   subs: EnrichedSubscription[],
 ): DashboardStats {
-  const active = subs.filter((s) => s.active);
+  // "Active" here means effective-active: live subs plus cancelled-but-not-yet-
+  // expired ones (still usable and still counted until their end date).
+  const active = subs.filter((s) => s.isActive);
 
   const monthlyTotal = active.reduce((sum, s) => sum + s.monthlyBase, 0);
   const yearlyTotal = active.reduce((sum, s) => sum + s.yearlyBase, 0);
@@ -37,7 +39,9 @@ export function computeDashboardStats(
   }
   const byCategory = [...categoryMap.values()].sort((a, b) => b.monthly - a.monthly);
 
-  const upcoming = [...active]
+  // Cancelled subs won't renew, so they don't belong in "upcoming renewals".
+  const upcoming = active
+    .filter((s) => s.status === "active")
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 5);
 

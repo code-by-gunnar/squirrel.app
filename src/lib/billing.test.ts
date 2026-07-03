@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeNextRenewal,
   daysUntilRenewal,
+  daysUntilDate,
   monthlyEquivalent,
   yearlyEquivalent,
   describeCycle,
@@ -10,6 +11,23 @@ import {
 } from "./billing";
 
 const iso = toISODate;
+
+describe("daysUntilDate", () => {
+  const from = new Date(2026, 6, 3); // 2026-07-03
+
+  it("is 0 for today", () => {
+    expect(daysUntilDate("2026-07-03", from)).toBe(0);
+  });
+  it("counts whole days to a future date", () => {
+    expect(daysUntilDate("2026-07-11", from)).toBe(8);
+  });
+  it("is negative once the date has passed (expired)", () => {
+    expect(daysUntilDate("2026-07-01", from)).toBe(-2);
+  });
+  it("handles far-future annual expiries", () => {
+    expect(daysUntilDate("2027-06-08", from)).toBeGreaterThan(300);
+  });
+});
 
 describe("computeNextRenewal", () => {
   it("returns the start date when it is in the future", () => {

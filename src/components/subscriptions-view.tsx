@@ -11,6 +11,8 @@ import {
   Search,
   CreditCard,
   Wallet,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, PaymentMethod, Subscription } from "@/db/schema";
@@ -18,7 +20,11 @@ import type { EnrichedSubscription } from "@/lib/subscriptions";
 import { describeCycle, type BillingCycle } from "@/lib/billing";
 import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { deleteSubscription } from "@/app/(app)/subscriptions/actions";
+import {
+  deleteSubscription,
+  cancelSubscription,
+  reactivateSubscription,
+} from "@/app/(app)/subscriptions/actions";
 import { SubscriptionSheet } from "@/components/subscription-sheet";
 import { SubscriptionLogo } from "@/components/subscription-logo";
 import { Button } from "@/components/ui/button";
@@ -63,6 +69,45 @@ function renewalLabel(days: number): { text: string; tone: string } {
   return { text: `in ${days} days`, tone: "text-muted-foreground" };
 }
 
+/** The badge shown next to a subscription's name, if any. */
+function statusBadge(
+  sub: EnrichedSubscription,
+): { label: string; className: string } | null {
+  switch (sub.status) {
+    case "cancelled":
+      return {
+        label: "Cancelled",
+        className:
+          "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-400",
+      };
+    case "expired":
+      return { label: "Expired", className: "" };
+    case "inactive":
+      return { label: "Inactive", className: "" };
+    default:
+      return null;
+  }
+}
+
+/** The bottom-right line: a renewal countdown, or an end/expiry date for cancelled subs. */
+function statusLine(
+  sub: EnrichedSubscription,
+): { text: string; tone: string; sub?: string } {
+  if (sub.status === "cancelled") {
+    const d = sub.daysUntilEnd ?? 0;
+    const text = d <= 0 ? "Ends today" : d === 1 ? "Ends tomorrow" : `Ends in ${d} days`;
+    return { text, tone: "text-amber-600 dark:text-amber-400", sub: sub.endsOn ?? undefined };
+  }
+  if (sub.status === "expired") {
+    return { text: "Expired", tone: "text-muted-foreground", sub: sub.endsOn ?? undefined };
+  }
+  if (sub.status === "inactive") {
+    return { text: "Inactive", tone: "text-muted-foreground" };
+  }
+  const rl = renewalLabel(sub.daysUntil);
+  return { text: rl.text, tone: rl.tone, sub: sub.nextRenewal };
+}
+
 export function SubscriptionsView({
   subscriptions,
   categories,
@@ -88,8 +133,9 @@ export function SubscriptionsView({
     if (categoryFilter !== "all") {
       items = items.filter((s) => String(s.categoryId) === categoryFilter);
     }
-    if (statusFilter === "active") items = items.filter((s) => s.active);
-    if (statusFilter === "inactive") items = items.filter((s) => !s.active);
+    if (statusFilter === "active") items = items.filter((s) => s.isActive);
+    if (statusFilter === "cancelled") items = items.filter((s) => s.status === "cancelled");
+    if (statusFilter === "inactive") items = items.filter((s) => !s.isActive);
 
     items.sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
@@ -118,6 +164,17 @@ export function SubscriptionsView({
     setDeleteTarget(null);
   }
 
+  async function doCancel(id: number) {
+    const res = await cancelSubscription(id);
+    if (res.error) toast.error(res.error);
+    else toast.success("Marked as cancelled — active until it expires");
+  }
+  async function doReactivate(id: number) {
+    const res = await reactivateSubscription(id);
+    if (res.error) toast.error(res.error);
+    else toast.success("Reactivated");
+  }
+
   // Value -> label maps so closed filters show the label, not the raw value.
   const categoryFilterItems: Record<string, string> = {
     all: "All categories",
@@ -125,6 +182,7 @@ export function SubscriptionsView({
   };
   const statusItems: Record<string, string> = {
     active: "Active",
+    cancelled: "Cancelled",
     inactive: "Inactive",
     all: "All",
   };
@@ -140,7 +198,10 @@ export function SubscriptionsView({
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Subscriptions</h1>
           <p className="text-sm text-muted-foreground">
-            {subscriptions.filter((s) => s.active).length} active
+            {subscriptions.filter((s) => s.isActive).length} active
+            {subscriptions.filter((s) => s.status === "cancelled").length > 0
+              ? ` · ${subscriptions.filter((s) => s.status === "cancelled").length} cancelled`
+              : ""}
           </p>
         </div>
         <Button onClick={openAdd} className="gap-2">
@@ -188,6 +249,7 @@ export function SubscriptionsView({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
@@ -218,13 +280,14 @@ export function SubscriptionsView({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((sub) => {
-            const rl = renewalLabel(sub.daysUntil);
+            const badge = statusBadge(sub);
+            const line = statusLine(sub);
             return (
               <div
                 key={sub.id}
                 className={cn(
                   "group relative flex flex-col rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md",
-                  !sub.active && "opacity-60",
+                  !sub.isActive && "opacity-60",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -236,9 +299,12 @@ export function SubscriptionsView({
                   />
                   <div className="flex min-w-0 flex-1 items-center gap-2 self-center">
                     <p className="truncate font-medium">{sub.name}</p>
-                    {!sub.active ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        Inactive
+                    {badge ? (
+                      <Badge
+                        variant="secondary"
+                        className={cn("shrink-0 text-[10px]", badge.className)}
+                      >
+                        {badge.label}
                       </Badge>
                     ) : null}
                   </div>
@@ -274,6 +340,17 @@ export function SubscriptionsView({
                           Visit site
                         </DropdownMenuItem>
                       ) : null}
+                      {sub.status === "active" ? (
+                        <DropdownMenuItem onClick={() => doCancel(sub.id)}>
+                          <Ban className="size-4" />
+                          Mark as cancelled
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={() => doReactivate(sub.id)}>
+                          <RotateCcw className="size-4" />
+                          Reactivate
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         variant="destructive"
@@ -299,8 +376,10 @@ export function SubscriptionsView({
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-medium ${rl.tone}`}>{rl.text}</p>
-                    <p className="text-xs text-muted-foreground">{sub.nextRenewal}</p>
+                    <p className={`text-sm font-medium ${line.tone}`}>{line.text}</p>
+                    {line.sub ? (
+                      <p className="text-xs text-muted-foreground">{line.sub}</p>
+                    ) : null}
                   </div>
                 </div>
 

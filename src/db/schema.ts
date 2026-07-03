@@ -57,6 +57,11 @@ export const subscriptions = sqliteTable(
     notes: text("notes"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     notify: integer("notify", { mode: "boolean" }).notNull().default(true),
+    // Cancelled but still usable until `endsOn`. Renewals stop, but the sub stays
+    // active (and counted) until that date, after which it reads as inactive.
+    // `endsOn` is the ISO date access ends (the end of the last paid period).
+    cancelled: integer("cancelled", { mode: "boolean" }).notNull().default(false),
+    endsOn: text("ends_on"),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),

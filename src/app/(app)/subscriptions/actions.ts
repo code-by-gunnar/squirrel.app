@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
-import { BILLING_CYCLES } from "@/lib/billing";
+import { getSubscription } from "@/lib/subscriptions";
+import {
+  BILLING_CYCLES,
+  computeNextRenewal,
+  toISODate,
+  type BillingCycle,
+} from "@/lib/billing";
 import {
   fetchLogoDataUri,
   searchLogoCandidates,
@@ -42,6 +48,11 @@ const SubscriptionSchema = z.object({
   notes: optionalString,
   active: z.boolean(),
   notify: z.boolean(),
+  cancelled: z.boolean(),
+  endsOn: z
+    .string()
+    .optional()
+    .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)),
 });
 
 export type SaveState = { ok?: boolean; error?: string };
@@ -75,6 +86,8 @@ export async function saveSubscription(
     notes: formData.get("notes"),
     active: parseCheckbox(formData, "active"),
     notify: parseCheckbox(formData, "notify"),
+    cancelled: parseCheckbox(formData, "cancelled"),
+    endsOn: formData.get("endsOn"),
   });
 
   if (!parsed.success) {
@@ -82,6 +95,22 @@ export async function saveSubscription(
   }
 
   const values = parsed.data;
+
+  // When cancelled, default the access-ends date to the end of the current paid
+  // period (the next renewal). When not cancelled, there is no end date.
+  if (values.cancelled) {
+    values.endsOn =
+      values.endsOn ??
+      toISODate(
+        computeNextRenewal(
+          values.startDate,
+          values.billingCycle as BillingCycle,
+          values.billingInterval,
+        ),
+      );
+  } else {
+    values.endsOn = null;
+  }
 
   // Auto-fetch a logo when the user hasn't provided/kept one.
   if (!values.logoUrl) {
@@ -120,6 +149,46 @@ export async function toggleActive(id: number, active: boolean): Promise<SaveSta
   db.update(subscriptions).set({ active }).where(eq(subscriptions.id, id)).run();
   revalidatePath("/subscriptions");
   revalidatePath("/");
+  return { ok: true };
+}
+
+/**
+ * Mark a subscription as cancelled. It stays active/usable until the end of the
+ * current paid period (the next renewal date), then reads as inactive.
+ */
+export async function cancelSubscription(id: number): Promise<SaveState> {
+  const sub = getSubscription(id);
+  if (!sub) return { error: "Subscription not found" };
+
+  const endsOn = toISODate(
+    computeNextRenewal(
+      sub.startDate,
+      sub.billingCycle as BillingCycle,
+      sub.billingInterval,
+    ),
+  );
+
+  db.update(subscriptions)
+    .set({ cancelled: true, endsOn, active: true })
+    .where(eq(subscriptions.id, id))
+    .run();
+
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  return { ok: true };
+}
+
+/** Undo a cancellation (or reactivate an inactive sub): back to a live, renewing state. */
+export async function reactivateSubscription(id: number): Promise<SaveState> {
+  db.update(subscriptions)
+    .set({ cancelled: false, endsOn: null, active: true })
+    .where(eq(subscriptions.id, id))
+    .run();
+
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  revalidatePath("/calendar");
   return { ok: true };
 }
 

@@ -17,6 +17,10 @@ Built to run as a single Docker container on a home NAS. Single user, no cloud.
   currency using free daily ECB rates (Frankfurter, no API key).
 - **Renewal reminders** — a daily push to your phone via
   [ntfy](https://ntfy.sh) before a subscription renews.
+- **Cancellations** — mark a subscription cancelled and it stays usable (and
+  counted) until the end of the paid period, then automatically drops to
+  inactive on that date. No more forgetting what you've cancelled but can still
+  use.
 - **Light & dark** themes, responsive, keyboard-friendly.
 - **Optional password** login, or open access on a trusted LAN.
 

@@ -8,6 +8,13 @@
       "when": 1782992983497,
       "tag": "0000_breezy_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1783043755071,
+      "tag": "0001_heavy_betty_ross",
+      "breakpoints": true
     }
   ]
 }

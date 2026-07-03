@@ -11,6 +11,7 @@ import {
 import {
   computeNextRenewal,
   daysUntilRenewal,
+  daysUntilDate,
   monthlyEquivalent,
   yearlyEquivalent,
   toISODate,
@@ -18,6 +19,15 @@ import {
 } from "@/lib/billing";
 import { convertToBase, ratesToMap } from "@/lib/currency";
 import { getBaseCurrency } from "@/lib/settings";
+
+/**
+ * A subscription's lifecycle state, derived on read:
+ * - `active`    — live and renewing.
+ * - `cancelled` — cancelled but still usable until `endsOn` (renewals stopped).
+ * - `expired`   — was cancelled and `endsOn` has now passed (reads as inactive).
+ * - `inactive`  — manually switched off.
+ */
+export type SubscriptionStatus = "active" | "cancelled" | "expired" | "inactive";
 
 export type EnrichedSubscription = Subscription & {
   categoryName: string | null;
@@ -28,7 +38,28 @@ export type EnrichedSubscription = Subscription & {
   priceBase: number; // the per-charge price converted to base currency
   monthlyBase: number; // monthly cost in base currency
   yearlyBase: number; // yearly cost in base currency
+  status: SubscriptionStatus;
+  isActive: boolean; // usable AND counted toward totals (active or cancelled-not-expired)
+  daysUntilEnd: number | null; // days until `endsOn` for a cancelled sub (null otherwise)
 };
+
+/** Derive lifecycle status + effective-active from the stored flags and dates. */
+function deriveStatus(
+  active: boolean,
+  cancelled: boolean,
+  endsOn: string | null,
+  from: Date,
+): { status: SubscriptionStatus; isActive: boolean; daysUntilEnd: number | null } {
+  if (!active) return { status: "inactive", isActive: false, daysUntilEnd: null };
+  if (cancelled) {
+    const daysUntilEnd = endsOn ? daysUntilDate(endsOn, from) : null;
+    if (daysUntilEnd !== null && daysUntilEnd < 0) {
+      return { status: "expired", isActive: false, daysUntilEnd };
+    }
+    return { status: "cancelled", isActive: true, daysUntilEnd };
+  }
+  return { status: "active", isActive: true, daysUntilEnd: null };
+}
 
 export function getCategories() {
   return db.select().from(categories).orderBy(categories.name).all();
@@ -69,6 +100,12 @@ export function listSubscriptions(): EnrichedSubscription[] {
     const nextRenewal = computeNextRenewal(sub.startDate, cycle, sub.billingInterval, from);
     const monthlyNative = monthlyEquivalent(sub.price, cycle, sub.billingInterval);
     const yearlyNative = yearlyEquivalent(sub.price, cycle, sub.billingInterval);
+    const { status, isActive, daysUntilEnd } = deriveStatus(
+      sub.active,
+      sub.cancelled,
+      sub.endsOn,
+      from,
+    );
     return {
       ...sub,
       categoryName,
@@ -79,6 +116,9 @@ export function listSubscriptions(): EnrichedSubscription[] {
       priceBase: convertToBase(sub.price, sub.currencyCode, base, rates),
       monthlyBase: convertToBase(monthlyNative, sub.currencyCode, base, rates),
       yearlyBase: convertToBase(yearlyNative, sub.currencyCode, base, rates),
+      status,
+      isActive,
+      daysUntilEnd,
     };
   });
 }

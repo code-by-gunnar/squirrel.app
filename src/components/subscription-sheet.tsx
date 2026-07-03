@@ -12,7 +12,12 @@ import {
 import type { LogoCandidate } from "@/lib/logo";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-is-mobile";
-import { BILLING_CYCLES } from "@/lib/billing";
+import {
+  BILLING_CYCLES,
+  computeNextRenewal,
+  toISODate,
+  type BillingCycle,
+} from "@/lib/billing";
 import { COMMON_CURRENCIES } from "@/lib/currency";
 import {
   Sheet,
@@ -76,6 +81,14 @@ export function SubscriptionSheet({
   );
   const [name, setName] = useState(subscription?.name ?? "");
   const [url, setUrl] = useState(subscription?.url ?? "");
+  const [startDate, setStartDate] = useState(
+    subscription?.startDate ?? new Date().toISOString().slice(0, 10),
+  );
+  const [billingInterval, setBillingInterval] = useState(
+    String(subscription?.billingInterval ?? 1),
+  );
+  const [cancelled, setCancelled] = useState(subscription?.cancelled ?? false);
+  const [endsOn, setEndsOn] = useState(subscription?.endsOn ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(subscription?.logoUrl ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [logoQuery, setLogoQuery] = useState("");
@@ -99,11 +112,32 @@ export function SubscriptionSheet({
     );
     setName(subscription?.name ?? "");
     setUrl(subscription?.url ?? "");
+    setStartDate(subscription?.startDate ?? new Date().toISOString().slice(0, 10));
+    setBillingInterval(String(subscription?.billingInterval ?? 1));
+    setCancelled(subscription?.cancelled ?? false);
+    setEndsOn(subscription?.endsOn ?? "");
     setLogoUrl(subscription?.logoUrl ?? null);
     setPickerOpen(false);
     setCandidates([]);
     setLogoQuery("");
   }, [open, subscription, baseCurrency]);
+
+  // Turning "Cancelled" on pre-fills the end date with the end of the current
+  // paid period (the next renewal), which is the usual "access until" date.
+  function handleCancelledChange(next: boolean) {
+    setCancelled(next);
+    if (next && !endsOn && startDate) {
+      setEndsOn(
+        toISODate(
+          computeNextRenewal(
+            startDate,
+            cycle as BillingCycle,
+            Number(billingInterval) || 1,
+          ),
+        ),
+      );
+    }
+  }
 
   function runLogoSearch(query: string) {
     if (!query.trim()) {
@@ -138,8 +172,6 @@ export function SubscriptionSheet({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
-
-  const today = new Date().toISOString().slice(0, 10);
 
   // Value -> label maps so the closed Select shows the name, not the raw id.
   const categoryItems: Record<string, string> = {
@@ -358,7 +390,8 @@ export function SubscriptionSheet({
                 name="billingInterval"
                 type="number"
                 min="1"
-                defaultValue={subscription?.billingInterval ?? 1}
+                value={billingInterval}
+                onChange={(e) => setBillingInterval(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -389,7 +422,8 @@ export function SubscriptionSheet({
               name="startDate"
               type="date"
               required
-              defaultValue={subscription?.startDate ?? today}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
 
@@ -477,6 +511,37 @@ export function SubscriptionSheet({
               <p className="text-xs text-muted-foreground">Counts toward your totals</p>
             </div>
             <Switch name="active" defaultChecked={subscription?.active ?? true} />
+          </div>
+
+          <div className="rounded-lg border p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Cancelled</p>
+                <p className="text-xs text-muted-foreground">
+                  Stays usable until it expires, then goes inactive
+                </p>
+              </div>
+              <Switch
+                name="cancelled"
+                checked={cancelled}
+                onCheckedChange={handleCancelledChange}
+              />
+            </div>
+            {cancelled ? (
+              <div className="mt-3 space-y-2 border-t pt-3">
+                <Label htmlFor="endsOn">Access ends on</Label>
+                <Input
+                  id="endsOn"
+                  name="endsOn"
+                  type="date"
+                  value={endsOn}
+                  onChange={(e) => setEndsOn(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Defaults to the end of your current paid period.
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">

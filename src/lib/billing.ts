@@ -88,6 +88,16 @@ export function daysUntilRenewal(
 }
 
 /**
+ * Whole days from today until an arbitrary ISO date (0 = today, negative = past).
+ * Used for a cancelled subscription's "access ends" countdown.
+ */
+export function daysUntilDate(iso: string, from: Date = new Date()): number {
+  const target = parseISODate(iso);
+  const fromMidnight = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  return differenceInCalendarDays(target, fromMidnight);
+}
+
+/**
  * Normalise a price to its average monthly cost, so subscriptions on different
  * cycles can be summed and compared. E.g. £120/year -> £10/month.
  */
