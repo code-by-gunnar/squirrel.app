@@ -23,11 +23,12 @@ export function computeDashboardStats(
   subs: EnrichedSubscription[],
 ): DashboardStats {
   // "Active" here means effective-active: live subs plus cancelled-but-not-yet-
-  // expired ones (still usable and still counted until their end date).
+  // expired ones (still usable, and counted in the active *count*).
   const active = subs.filter((s) => s.isActive);
-  // Free-tier subs are active but generate no spend, so they're left out of the
-  // monetary aggregations (but still counted as active subscriptions).
-  const paid = active.filter((s) => !s.free);
+  // Spend figures reflect ongoing recurring cost only. Cancelled subs are already
+  // paid for the current term and won't renew, and free subs have no charge — so
+  // both are excluded from monthly/yearly totals and the category breakdown.
+  const paid = active.filter((s) => s.status === "active" && !s.free);
 
   const monthlyTotal = paid.reduce((sum, s) => sum + s.monthlyBase, 0);
   const yearlyTotal = paid.reduce((sum, s) => sum + s.yearlyBase, 0);

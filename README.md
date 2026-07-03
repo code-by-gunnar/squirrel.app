@@ -19,10 +19,11 @@ Built to run as a single Docker container on a home NAS. Single user, no cloud.
   currency using free daily ECB rates (Frankfurter, no API key).
 - **Renewal reminders** — a daily push to your phone via
   [ntfy](https://ntfy.sh) before a subscription renews.
-- **Cancellations** — mark a subscription cancelled and it stays usable (and
-  counted) until the end of the paid period, then automatically drops to
-  inactive on that date. No more forgetting what you've cancelled but can still
-  use.
+- **Cancellations** — mark a subscription cancelled and it stays usable until
+  the end of the paid period, then automatically drops to inactive on that date.
+  It leaves your spend totals right away (it's already paid and won't renew), so
+  your monthly figure stays accurate. No more forgetting what you've cancelled
+  but can still use.
 - **Free-tier tracking** — flag a service you're on the free plan for. It's kept
   for awareness but left out of spend totals, renewals and reminders.
 - **Install as an app (PWA)** — add Squirrel to your phone's home screen for a
@@ -81,11 +82,6 @@ dataset instead, replace that volume line with a bind mount, e.g.
 **Updating:** pull the new image and recreate — `docker compose pull && docker
 compose up -d` (Dockge/Portainer have an "update" button that does this). Your
 data in the volume is preserved.
-
-> **First-time note:** the GHCR package is private until you make it public.
-> On GitHub, go to your profile → **Packages → squirrel → Package settings →
-> Change visibility → Public**. (Or, on the NAS, `docker login ghcr.io` with a
-> personal access token that has `read:packages`.)
 
 ## Access over HTTPS (for PWA install)
 
