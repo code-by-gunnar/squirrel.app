@@ -11,6 +11,7 @@ import {
 } from "@/app/(app)/subscriptions/actions";
 import type { LogoCandidate } from "@/lib/logo";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { BILLING_CYCLES } from "@/lib/billing";
 import { COMMON_CURRENCIES } from "@/lib/currency";
 import {
@@ -61,6 +62,7 @@ export function SubscriptionSheet({
 }: Props) {
   const [state, formAction, pending] = useActionState(saveSubscription, initialState);
   const isEdit = !!subscription;
+  const isMobile = useIsMobile();
 
   // Controlled selects (native selects don't play well inside Radix, so we
   // mirror the value into a hidden input the server action reads).
@@ -152,9 +154,22 @@ export function SubscriptionSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        side={isMobile ? "bottom" : "right"}
         initialFocus={scrollRef}
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        className={cn(
+          "flex w-full flex-col gap-0 p-0",
+          // Mobile: anchored bottom, with a top gap so it reads as a sheet over
+          // the page. Deriving height from top+bottom (rather than a viewport
+          // unit) means it can never overrun the visible viewport.
+          isMobile ? "top-[7%] rounded-t-2xl" : "sm:max-w-md",
+        )}
       >
+        {isMobile ? (
+          <div
+            aria-hidden
+            className="mx-auto mt-2.5 h-1.5 w-10 shrink-0 rounded-full bg-muted-foreground/25"
+          />
+        ) : null}
         <SheetHeader className="shrink-0 border-b">
           <SheetTitle>{isEdit ? "Edit subscription" : "Add subscription"}</SheetTitle>
           <SheetDescription>
