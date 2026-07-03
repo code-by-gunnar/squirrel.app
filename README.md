@@ -109,7 +109,7 @@ phone, use the browser's **Install app** option (not "Add to Home screen").
 ## Run from source (development)
 
 ```bash
-git clone https://github.com/code-by-gunnar/squirrel && cd squirrel
+git clone https://github.com/code-by-gunnar/squirrel.app && cd squirrel.app
 cp .env.example .env
 # edit .env: set APP_PASSWORD and a random SESSION_SECRET
 docker compose up -d --build

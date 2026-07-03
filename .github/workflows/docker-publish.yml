@@ -2,7 +2,7 @@ name: Build and publish Docker image
 
 # Publishes a multi-arch image to the GitHub Container Registry (GHCR) so it can
 # be pulled on any NAS via a docker-compose stack. Runs on pushes to main and on
-# version tags (v*). The image ends up at ghcr.io/<owner>/<repo>.
+# version tags (v*). The image is published to ghcr.io/code-by-gunnar/squirrel.
 
 on:
   push:
@@ -12,7 +12,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Pinned rather than derived from ${{ github.repository }} so the image name
+  # stays "squirrel" even though the repo was renamed to "squirrel.app".
+  IMAGE_NAME: code-by-gunnar/squirrel
 
 jobs:
   build-and-push:
