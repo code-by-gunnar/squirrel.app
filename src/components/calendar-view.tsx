@@ -55,8 +55,8 @@ export function CalendarView({
   // Map ISO date -> subscriptions renewing that day, across the visible grid.
   const byDay = useMemo(() => {
     const map = new Map<string, DayEntry[]>();
-    // Only subs that actually renew — exclude cancelled ones (they stop renewing).
-    const active = subscriptions.filter((s) => s.status === "active");
+    // Only subs that actually renew — exclude cancelled (stopped) and free (no billing).
+    const active = subscriptions.filter((s) => s.status === "active" && !s.free);
     for (const sub of active) {
       const dates = renewalsInRange(
         sub.startDate,

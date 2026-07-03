@@ -18,6 +18,7 @@ export async function runDailyReminders(): Promise<{ sent: number; error?: strin
   const due = listSubscriptions().filter(
     (s) =>
       s.status === "active" && // cancelled subs won't renew — don't remind
+      !s.free && // free subs don't bill — nothing to remind about
       s.notify &&
       (s.daysUntil === lead || s.daysUntil === 0),
   );

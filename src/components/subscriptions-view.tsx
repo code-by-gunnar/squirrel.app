@@ -135,6 +135,7 @@ export function SubscriptionsView({
     }
     if (statusFilter === "active") items = items.filter((s) => s.isActive);
     if (statusFilter === "cancelled") items = items.filter((s) => s.status === "cancelled");
+    if (statusFilter === "free") items = items.filter((s) => s.free);
     if (statusFilter === "inactive") items = items.filter((s) => !s.isActive);
 
     items.sort((a, b) => {
@@ -183,6 +184,7 @@ export function SubscriptionsView({
   const statusItems: Record<string, string> = {
     active: "Active",
     cancelled: "Cancelled",
+    free: "Free",
     inactive: "Inactive",
     all: "All",
   };
@@ -250,6 +252,7 @@ export function SubscriptionsView({
             <SelectContent>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="free">Free</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
               <SelectItem value="all">All</SelectItem>
             </SelectContent>
@@ -280,7 +283,13 @@ export function SubscriptionsView({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((sub) => {
-            const badge = statusBadge(sub);
+            const badge = sub.free
+              ? {
+                  label: "Free",
+                  className:
+                    "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-400",
+                }
+              : statusBadge(sub);
             const line = statusLine(sub);
             return (
               <div
@@ -343,7 +352,7 @@ export function SubscriptionsView({
                       {sub.status === "active" ? (
                         <DropdownMenuItem onClick={() => doCancel(sub.id)}>
                           <Ban className="size-4" />
-                          Mark as cancelled
+                          Mark cancelled
                         </DropdownMenuItem>
                       ) : (
                         <DropdownMenuItem onClick={() => doReactivate(sub.id)}>
@@ -365,22 +374,30 @@ export function SubscriptionsView({
 
                 <div className="mt-4 flex items-end justify-between">
                   <div>
-                    <p className="text-lg font-semibold">
-                      {formatCurrency(sub.price, sub.currencyCode)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {describeCycle(sub.billingCycle as BillingCycle, sub.billingInterval)}
-                      {sub.currencyCode !== baseCurrency
-                        ? ` · ${formatCurrency(sub.monthlyBase, baseCurrency)}/mo`
-                        : ""}
-                    </p>
+                    {sub.free ? (
+                      <p className="text-lg font-semibold">Free</p>
+                    ) : (
+                      <>
+                        <p className="text-lg font-semibold">
+                          {formatCurrency(sub.price, sub.currencyCode)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {describeCycle(sub.billingCycle as BillingCycle, sub.billingInterval)}
+                          {sub.currencyCode !== baseCurrency
+                            ? ` · ${formatCurrency(sub.monthlyBase, baseCurrency)}/mo`
+                            : ""}
+                        </p>
+                      </>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-medium ${line.tone}`}>{line.text}</p>
-                    {line.sub ? (
-                      <p className="text-xs text-muted-foreground">{line.sub}</p>
-                    ) : null}
-                  </div>
+                  {!sub.free ? (
+                    <div className="text-right">
+                      <p className={`text-sm font-medium ${line.tone}`}>{line.text}</p>
+                      {line.sub ? (
+                        <p className="text-xs text-muted-foreground">{line.sub}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {sub.categoryName || sub.paymentMethodName ? (

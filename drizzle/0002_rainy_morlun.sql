@@ -1,0 +1,1 @@
+ALTER TABLE `subscriptions` ADD `free` integer DEFAULT false NOT NULL;

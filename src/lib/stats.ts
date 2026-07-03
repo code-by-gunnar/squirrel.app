@@ -25,12 +25,15 @@ export function computeDashboardStats(
   // "Active" here means effective-active: live subs plus cancelled-but-not-yet-
   // expired ones (still usable and still counted until their end date).
   const active = subs.filter((s) => s.isActive);
+  // Free-tier subs are active but generate no spend, so they're left out of the
+  // monetary aggregations (but still counted as active subscriptions).
+  const paid = active.filter((s) => !s.free);
 
-  const monthlyTotal = active.reduce((sum, s) => sum + s.monthlyBase, 0);
-  const yearlyTotal = active.reduce((sum, s) => sum + s.yearlyBase, 0);
+  const monthlyTotal = paid.reduce((sum, s) => sum + s.monthlyBase, 0);
+  const yearlyTotal = paid.reduce((sum, s) => sum + s.yearlyBase, 0);
 
   const categoryMap = new Map<string, CategorySpend>();
-  for (const s of active) {
+  for (const s of paid) {
     const name = s.categoryName ?? "Uncategorised";
     const color = s.categoryColor ?? "#64748b";
     const entry = categoryMap.get(name) ?? { name, color, monthly: 0 };
@@ -39,9 +42,10 @@ export function computeDashboardStats(
   }
   const byCategory = [...categoryMap.values()].sort((a, b) => b.monthly - a.monthly);
 
-  // Cancelled subs won't renew, so they don't belong in "upcoming renewals".
+  // Only subs that actually bill belong in "upcoming renewals" — exclude
+  // cancelled (won't renew) and free (no billing).
   const upcoming = active
-    .filter((s) => s.status === "active")
+    .filter((s) => s.status === "active" && !s.free)
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 5);
 

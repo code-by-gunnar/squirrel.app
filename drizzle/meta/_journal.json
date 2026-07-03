@@ -15,6 +15,13 @@
       "when": 1783043755071,
       "tag": "0001_heavy_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1783063069446,
+      "tag": "0002_rainy_morlun",
+      "breakpoints": true
     }
   ]
 }

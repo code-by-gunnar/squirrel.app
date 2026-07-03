@@ -87,6 +87,7 @@ export function SubscriptionSheet({
   const [billingInterval, setBillingInterval] = useState(
     String(subscription?.billingInterval ?? 1),
   );
+  const [free, setFree] = useState(subscription?.free ?? false);
   const [cancelled, setCancelled] = useState(subscription?.cancelled ?? false);
   const [endsOn, setEndsOn] = useState(subscription?.endsOn ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(subscription?.logoUrl ?? null);
@@ -114,6 +115,7 @@ export function SubscriptionSheet({
     setUrl(subscription?.url ?? "");
     setStartDate(subscription?.startDate ?? new Date().toISOString().slice(0, 10));
     setBillingInterval(String(subscription?.billingInterval ?? 1));
+    setFree(subscription?.free ?? false);
     setCancelled(subscription?.cancelled ?? false);
     setEndsOn(subscription?.endsOn ?? "");
     setLogoUrl(subscription?.logoUrl ?? null);
@@ -351,7 +353,17 @@ export function SubscriptionSheet({
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Free plan</p>
+              <p className="text-xs text-muted-foreground">
+                On a free tier — no billing, tracked for awareness
+              </p>
+            </div>
+            <Switch name="free" checked={free} onCheckedChange={setFree} />
+          </div>
+
+          <div className={cn("grid grid-cols-2 gap-3", free && "hidden")}>
             <div className="space-y-2">
               <Label htmlFor="price">Price</Label>
               <Input
@@ -360,7 +372,7 @@ export function SubscriptionSheet({
                 type="number"
                 step="0.01"
                 min="0"
-                required
+                required={!free}
                 defaultValue={subscription?.price ?? ""}
                 placeholder="9.99"
               />
@@ -382,7 +394,7 @@ export function SubscriptionSheet({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={cn("grid grid-cols-2 gap-3", free && "hidden")}>
             <div className="space-y-2">
               <Label htmlFor="billingInterval">Bills every</Label>
               <Input

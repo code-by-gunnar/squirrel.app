@@ -57,6 +57,9 @@ export const subscriptions = sqliteTable(
     notes: text("notes"),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     notify: integer("notify", { mode: "boolean" }).notNull().default(true),
+    // On a free tier: no billing at all. Price is 0, and it's excluded from
+    // spend totals, renewals, the calendar and reminders — tracked for awareness.
+    free: integer("free", { mode: "boolean" }).notNull().default(false),
     // Cancelled but still usable until `endsOn`. Renewals stop, but the sub stays
     // active (and counted) until that date, after which it reads as inactive.
     // `endsOn` is the ISO date access ends (the end of the last paid period).

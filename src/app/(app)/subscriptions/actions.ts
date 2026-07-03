@@ -34,7 +34,8 @@ const SubscriptionSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   url: optionalString,
   logoUrl: optionalString,
-  price: z.coerce.number().positive("Price must be greater than 0"),
+  // Free subs are saved at 0; paid subs must be > 0 (enforced in superRefine).
+  price: z.coerce.number().min(0, "Price can't be negative"),
   currencyCode: z.string().trim().length(3).toUpperCase(),
   billingCycle: z.enum(BILLING_CYCLES as [string, ...string[]]),
   billingInterval: z.coerce.number().int().min(1).max(365),
@@ -48,11 +49,24 @@ const SubscriptionSchema = z.object({
   notes: optionalString,
   active: z.boolean(),
   notify: z.boolean(),
+  free: z.boolean(),
   cancelled: z.boolean(),
+  // `.nullish()` (not just `.optional()`): the endsOn input is only rendered when
+  // a sub is cancelled, so for every other sub `formData.get("endsOn")` is null —
+  // which a plain optional string rejects, breaking ALL non-cancelled saves.
   endsOn: z
     .string()
-    .optional()
+    .nullish()
     .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)),
+}).superRefine((data, ctx) => {
+  // A paid subscription needs a real price; a free one is saved at 0.
+  if (!data.free && data.price <= 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["price"],
+      message: "Price must be greater than 0",
+    });
+  }
 });
 
 export type SaveState = { ok?: boolean; error?: string };
@@ -86,6 +100,7 @@ export async function saveSubscription(
     notes: formData.get("notes"),
     active: parseCheckbox(formData, "active"),
     notify: parseCheckbox(formData, "notify"),
+    free: parseCheckbox(formData, "free"),
     cancelled: parseCheckbox(formData, "cancelled"),
     endsOn: formData.get("endsOn"),
   });
@@ -95,6 +110,9 @@ export async function saveSubscription(
   }
 
   const values = parsed.data;
+
+  // Free subs carry no price.
+  if (values.free) values.price = 0;
 
   // When cancelled, default the access-ends date to the end of the current paid
   // period (the next renewal). When not cancelled, there is no end date.
