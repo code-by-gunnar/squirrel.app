@@ -195,6 +195,15 @@ computed on read from an immutable start date, so they never drift.
 See [docs/plans/2026-07-02-squirrel-design.md](docs/plans/2026-07-02-squirrel-design.md)
 for the full design.
 
+## Acknowledgements
+
+Squirrel was inspired by [Wallos](https://github.com/ellite/Wallos), a superb
+open-source subscription tracker by [@ellite](https://github.com/ellite). Wallos
+sparked the idea and shaped several of Squirrel's early features. Squirrel is an
+independent reimplementation with its own codebase (Next.js/TypeScript rather
+than PHP) and its own direction, but full credit to Wallos for lighting the way.
+If you want a mature, battle-tested option today, go give it a star.
+
 ## License
 
 Released under the [MIT License](LICENSE). Do what you like with it.
