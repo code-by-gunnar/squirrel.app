@@ -13,6 +13,7 @@ you're still paying for, all from one small container on your own NAS.
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](#tech)
 [![SQLite + Drizzle](https://img.shields.io/badge/SQLite-Drizzle-003B57?logo=sqlite&logoColor=white)](#tech)
 [![Installable PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](#access-over-https-for-pwa-install)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 <br/>
 
@@ -196,4 +197,4 @@ for the full design.
 
 ## License
 
-Personal project. Do what you like with it.
+Released under the [MIT License](LICENSE). Do what you like with it.
