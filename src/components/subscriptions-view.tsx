@@ -140,7 +140,10 @@ export function SubscriptionsView({
 
     items.sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name);
-      if (sort === "price") return b.monthlyBase - a.monthlyBase;
+      // Sort by the actual charge shown on the card (converted to the base
+      // currency so mixed currencies compare), not the monthly-equivalent —
+      // otherwise a £120/yr sub sorts below a £15/mo one despite showing £120.
+      if (sort === "price") return b.priceBase - a.priceBase;
       return a.daysUntil - b.daysUntil;
     });
     return items;
