@@ -5,6 +5,7 @@ import { computeDashboardStats } from "@/lib/stats";
 import { getBaseCurrency } from "@/lib/settings";
 import { formatCurrency } from "@/lib/currency";
 import { CategoryChart } from "@/components/category-chart";
+import { SubscriptionLogo } from "@/components/subscription-logo";
 import {
   Card,
   CardContent,
@@ -127,12 +128,11 @@ export default function DashboardPage() {
                 {stats.upcoming.map((s) => (
                   <li key={s.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                     <div className="flex items-center gap-3">
-                      <span
-                        className="flex size-8 items-center justify-center rounded-lg text-xs font-semibold text-white"
-                        style={{ backgroundColor: s.categoryColor ?? "#64748b" }}
-                      >
-                        {s.name.charAt(0).toUpperCase()}
-                      </span>
+                      <SubscriptionLogo
+                        name={s.name}
+                        logoUrl={s.logoUrl}
+                        color={s.categoryColor}
+                      />
                       <div>
                         <p className="text-sm font-medium">{s.name}</p>
                         <p className="text-xs text-muted-foreground">{s.nextRenewal}</p>

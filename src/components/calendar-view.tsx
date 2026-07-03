@@ -18,6 +18,7 @@ import type { EnrichedSubscription } from "@/lib/subscriptions";
 import { renewalsInRange, toISODate, type BillingCycle } from "@/lib/billing";
 import { formatCurrency } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { SubscriptionLogo } from "@/components/subscription-logo";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -76,6 +77,7 @@ export function CalendarView({
   const selectedEntries = selected ? (byDay.get(selected) ?? []) : [];
   const selectedTotal = selectedEntries.reduce((s, e) => s + e.sub.priceBase, 0);
   const today = toISODate(new Date());
+  const viewingCurrentMonth = isSameMonth(cursor, new Date());
 
   return (
     <div className="space-y-6">
@@ -94,15 +96,19 @@ export function CalendarView({
           <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, 1))} aria-label="Next month">
             <ChevronRight className="size-4" />
           </Button>
-          {/* Absolute on mobile so the month label stays dead-centre; inline on desktop. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCursor(startOfMonth(new Date()))}
-            className="absolute right-0 sm:static"
-          >
-            Today
-          </Button>
+          {/* Only shown once you've navigated away from the current month, so it
+              never sits there looking like inert text. Absolute on mobile so the
+              month label stays dead-centre; inline on desktop. */}
+          {!viewingCurrentMonth ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCursor(startOfMonth(new Date()))}
+              className="absolute right-0 sm:static"
+            >
+              Today
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -185,12 +191,11 @@ export function CalendarView({
             {selectedEntries.map(({ sub }, i) => (
               <div key={i} className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3">
-                  <span
-                    className="flex size-8 items-center justify-center rounded-lg text-xs font-semibold text-white"
-                    style={{ backgroundColor: sub.categoryColor ?? "#64748b" }}
-                  >
-                    {sub.name.charAt(0).toUpperCase()}
-                  </span>
+                  <SubscriptionLogo
+                    name={sub.name}
+                    logoUrl={sub.logoUrl}
+                    color={sub.categoryColor}
+                  />
                   <div>
                     <p className="text-sm font-medium">{sub.name}</p>
                     {sub.categoryName ? (

@@ -17,8 +17,10 @@ import type { Category, PaymentMethod, Subscription } from "@/db/schema";
 import type { EnrichedSubscription } from "@/lib/subscriptions";
 import { describeCycle, type BillingCycle } from "@/lib/billing";
 import { formatCurrency } from "@/lib/currency";
+import { cn } from "@/lib/utils";
 import { deleteSubscription } from "@/app/(app)/subscriptions/actions";
 import { SubscriptionSheet } from "@/components/subscription-sheet";
+import { SubscriptionLogo } from "@/components/subscription-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -59,26 +61,6 @@ function renewalLabel(days: number): { text: string; tone: string } {
   if (days === 1) return { text: "Tomorrow", tone: "text-amber-600 dark:text-amber-400" };
   if (days <= 7) return { text: `in ${days} days`, tone: "text-amber-600 dark:text-amber-400" };
   return { text: `in ${days} days`, tone: "text-muted-foreground" };
-}
-
-function SubLogo({ sub }: { sub: EnrichedSubscription }) {
-  const color = sub.categoryColor ?? "#64748b";
-  if (sub.logoUrl) {
-    return (
-      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-background">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={sub.logoUrl} alt="" className="size-full object-contain p-1" />
-      </div>
-    );
-  }
-  return (
-    <div
-      className="flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
-      style={{ backgroundColor: color }}
-    >
-      {sub.name.charAt(0).toUpperCase()}
-    </div>
-  );
 }
 
 export function SubscriptionsView({
@@ -240,10 +222,18 @@ export function SubscriptionsView({
             return (
               <div
                 key={sub.id}
-                className="group relative flex flex-col rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
+                className={cn(
+                  "group relative flex flex-col rounded-2xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md",
+                  !sub.active && "opacity-60",
+                )}
               >
                 <div className="flex items-start gap-3">
-                  <SubLogo sub={sub} />
+                  <SubscriptionLogo
+                    name={sub.name}
+                    logoUrl={sub.logoUrl}
+                    color={sub.categoryColor}
+                    size="md"
+                  />
                   <div className="flex min-w-0 flex-1 items-center gap-2 self-center">
                     <p className="truncate font-medium">{sub.name}</p>
                     {!sub.active ? (

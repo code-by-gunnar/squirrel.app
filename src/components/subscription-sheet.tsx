@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { LoaderCircle, ImageIcon, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Subscription, Category, PaymentMethod } from "@/db/schema";
@@ -80,6 +80,10 @@ export function SubscriptionSheet({
   const [candidates, setCandidates] = useState<LogoCandidate[]>([]);
   const [searching, startSearch] = useTransition();
 
+  // Focus this non-input container when the sheet opens instead of the first
+  // field, so mobile keyboards don't spring up and cover the form on open.
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   // Reset local state every time the sheet opens (or the target changes).
   // Keyed on `open` too, otherwise opening "Add" twice in a row keeps the
   // previous entry's state (e.g. its fetched logo leaks onto the next one).
@@ -147,8 +151,11 @@ export function SubscriptionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-md">
-        <SheetHeader>
+      <SheetContent
+        initialFocus={scrollRef}
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+      >
+        <SheetHeader className="shrink-0 border-b">
           <SheetTitle>{isEdit ? "Edit subscription" : "Add subscription"}</SheetTitle>
           <SheetDescription>
             {isEdit
@@ -157,13 +164,18 @@ export function SubscriptionSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <form action={formAction} className="flex flex-1 flex-col gap-4 px-4 pb-4">
+        <form action={formAction} className="flex min-h-0 flex-1 flex-col">
           {isEdit ? <input type="hidden" name="id" value={subscription!.id} /> : null}
           <input type="hidden" name="currencyCode" value={currency} />
           <input type="hidden" name="billingCycle" value={cycle} />
           <input type="hidden" name="categoryId" value={categoryId} />
           <input type="hidden" name="paymentMethodId" value={paymentMethodId} />
 
+          <div
+            ref={scrollRef}
+            tabIndex={-1}
+            className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 outline-none"
+          >
           <div className="flex items-end gap-3">
             <div
               className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40"
@@ -459,8 +471,12 @@ export function SubscriptionSheet({
             </div>
             <Switch name="notify" defaultChecked={subscription?.notify ?? true} />
           </div>
+          </div>
 
-          <SheetFooter className="mt-auto flex-row gap-2 px-0">
+          <SheetFooter
+            className="shrink-0 flex-row gap-2 border-t p-4"
+            style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+          >
             <Button
               type="button"
               variant="outline"

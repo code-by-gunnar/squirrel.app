@@ -40,15 +40,17 @@ const SubscriptionSchema = z.object({
   categoryId: optionalId,
   paymentMethodId: optionalId,
   notes: optionalString,
-  active: z.coerce.boolean().optional().default(true),
-  notify: z.coerce.boolean().optional().default(true),
+  active: z.boolean(),
+  notify: z.boolean(),
 });
 
 export type SaveState = { ok?: boolean; error?: string };
 
-function parseCheckbox(fd: FormData, name: string): string {
-  // Unchecked checkboxes are absent from FormData.
-  return fd.get(name) != null ? "true" : "";
+function parseCheckbox(fd: FormData, name: string): boolean {
+  // Unchecked switches/checkboxes are absent from FormData entirely.
+  // Return a concrete boolean — never undefined — so an unchecked switch
+  // persists as `false` instead of falling back to a schema default of `true`.
+  return fd.get(name) != null;
 }
 
 export async function saveSubscription(
@@ -71,8 +73,8 @@ export async function saveSubscription(
     categoryId: formData.get("categoryId"),
     paymentMethodId: formData.get("paymentMethodId"),
     notes: formData.get("notes"),
-    active: parseCheckbox(formData, "active") || undefined,
-    notify: parseCheckbox(formData, "notify") || undefined,
+    active: parseCheckbox(formData, "active"),
+    notify: parseCheckbox(formData, "notify"),
   });
 
   if (!parsed.success) {
