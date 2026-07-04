@@ -78,7 +78,6 @@ export function CalendarView({
   const selectedEntries = selected ? (byDay.get(selected) ?? []) : [];
   const selectedTotal = selectedEntries.reduce((s, e) => s + e.sub.priceBase, 0);
   const today = toISODate(new Date());
-  const viewingCurrentMonth = isSameMonth(cursor, new Date());
 
   return (
     <div className="space-y-6">
@@ -97,19 +96,6 @@ export function CalendarView({
           <Button variant="outline" size="icon" onClick={() => setCursor(addMonths(cursor, 1))} aria-label="Next month">
             <ChevronRight className="size-4" />
           </Button>
-          {/* Only shown once you've navigated away from the current month, so it
-              never sits there looking like inert text. Absolute on mobile so the
-              month label stays dead-centre; inline on desktop. */}
-          {!viewingCurrentMonth ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setCursor(startOfMonth(new Date()))}
-              className="absolute right-0 sm:static"
-            >
-              Today
-            </Button>
-          ) : null}
         </div>
       </div>
 
