@@ -7,8 +7,20 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   base_currency: process.env.BASE_CURRENCY ?? "GBP",
   notify_lead_days: "3",
   theme: "system",
+  ntfy_enabled: "1",
   ntfy_server: "https://ntfy.sh",
   ntfy_topic: "",
+  telegram_enabled: "",
+  telegram_bot_token: "",
+  telegram_chat_id: "",
+  email_enabled: "",
+  email_smtp_host: "",
+  email_smtp_port: "",
+  email_smtp_secure: "",
+  email_smtp_user: "",
+  email_smtp_pass: "",
+  email_from: "",
+  email_to: "",
 };
 
 const DEFAULT_CATEGORIES: { name: string; color: string }[] = [
