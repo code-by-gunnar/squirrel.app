@@ -56,8 +56,7 @@ immutable start date, so nothing to sync and nothing drifts.
   free / inactive); sort by next renewal, name, or price (high–low).
 - **Multi-currency** — track subs in any currency; totals convert to your base
   currency using free daily ECB rates (Frankfurter, no API key).
-- **Renewal reminders** — a daily push to your phone via
-  [ntfy](https://ntfy.sh) before a subscription renews.
+- **Renewal reminders** — a daily push before a subscription renews — via **ntfy**, **Telegram**, or **email** (enable any combination).
 - **Cancellations** — mark a subscription cancelled and it stays usable until
   the end of the paid period, then automatically drops to inactive on that date.
   It leaves your spend totals right away (it's already paid and won't renew), so
@@ -174,15 +173,37 @@ All via environment variables (see `.env.example`):
 Base currency, reminder lead time, categories, payment methods and ntfy config
 are all editable in **Settings** once running.
 
-## Phone notifications (ntfy)
+## Notifications
+
+Each channel (ntfy, Telegram, Email) can be independently enabled in Settings. A channel only sends when both enabled **and** fully configured; an unconfigured channel is simply inert and won't block saving.
+
+### ntfy
 
 1. Install the [ntfy app](https://ntfy.sh/app) on your phone.
-2. Subscribe to a topic of your choosing, e.g. `squirrel-alerts-<random>`.
-3. In Squirrel → **Settings**, set the same topic (and your server if you
-   self-host ntfy). Hit **Send test** to confirm.
+2. Choose a topic (e.g. `squirrel-alerts-<random>`) and subscribe to it on your phone.
+3. In Squirrel → **Settings**, enable **ntfy** and enter the same topic.
+4. Click **Test ntfy** to send a test notification.
 
-Squirrel sends a reminder `N` days before a renewal (configurable) and again on
-the day. It pairs nicely with a self-hosted ntfy server on the same NAS.
+**Self-hosted ntfy (optional):** Add the `ntfy` service from the Compose stack included in this repo. In Squirrel's Settings, set *ntfy server* to `http://ntfy` (internal address to the container). Your phone subscribes to `http://YOUR-NAS-IP:8481/<topic>` (the external address).
+
+Squirrel sends a reminder `N` days before a renewal (configurable) and again on the day.
+
+### Telegram
+
+1. Message [@BotFather](https://t.me/botfather) on Telegram and run `/newbot`. Follow the prompts and copy the bot token.
+2. In Squirrel → **Settings**, enable **Telegram** and paste the token.
+3. Send your new bot a message on Telegram (anything will do).
+4. Click **Detect** in Settings to fill in your chat ID automatically.
+5. Click **Test Telegram** to send a test message.
+
+### Email
+
+1. In Squirrel → **Settings**, enable **Email**.
+2. Fill in your SMTP server details (e.g. Gmail: `smtp.gmail.com:587` with an [app password](https://support.google.com/accounts/answer/185833)).
+3. Enter your sender email address (From) and the recipient address (To).
+4. Click **Test email** to send a test message.
+
+Channel tokens and passwords are stored in Squirrel's database and included in JSON backups — keep backups private.
 
 ## Local development
 
