@@ -175,7 +175,7 @@ are all editable in **Settings** once running.
 
 ## Notifications
 
-Each channel (ntfy, Telegram, Email) can be independently enabled in Settings. A channel only sends when both enabled **and** fully configured; an unconfigured channel is simply inert and won't block saving.
+Each channel (ntfy, Telegram, Email) can be independently enabled in Settings. A channel only sends when both enabled **and** fully configured; an unconfigured channel is simply inert and won't block saving. Reminders go out `N` days before a renewal (configurable) and again on the day, to every enabled channel.
 
 ### ntfy
 
@@ -184,9 +184,28 @@ Each channel (ntfy, Telegram, Email) can be independently enabled in Settings. A
 3. In Squirrel → **Settings**, enable **ntfy** and enter the same topic.
 4. Click **Test ntfy** to send a test notification.
 
-**Self-hosted ntfy (optional):** Add the `ntfy` service from the Compose stack included in this repo. In Squirrel's Settings, set *ntfy server* to `http://ntfy` (internal address to the container). Your phone subscribes to `http://YOUR-NAS-IP:8481/<topic>` (the external address).
+**Self-hosted ntfy (optional):** run your own ntfy server alongside Squirrel so the default channel needs no third party. Add this service to the Compose stack you deployed:
 
-Squirrel sends a reminder `N` days before a renewal (configurable) and again on the day.
+```yaml
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: squirrel-ntfy
+    command: serve
+    environment:
+      NTFY_BASE_URL: "http://YOUR-NAS-IP:8481"
+    ports:
+      - "8481:80"
+    volumes:
+      - ntfy-cache:/var/cache/ntfy
+      - ntfy-data:/var/lib/ntfy
+    restart: unless-stopped
+
+volumes:
+  ntfy-cache:
+  ntfy-data:
+```
+
+If your stack already has a top-level `volumes:` block, merge these two entries into it rather than adding a second `volumes:` key. Then in Squirrel → **Settings**, set *ntfy server* to `http://ntfy` — Squirrel publishes to the bundled server over the internal Docker network — and subscribe your phone's ntfy app to `http://YOUR-NAS-IP:8481/<topic>` (the external address).
 
 ### Telegram
 
