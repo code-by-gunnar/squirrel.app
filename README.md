@@ -14,6 +14,7 @@ you're still paying for, all from one small container on your own NAS.
 [![SQLite + Drizzle](https://img.shields.io/badge/SQLite-Drizzle-003B57?logo=sqlite&logoColor=white)](#tech)
 [![Installable PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa&logoColor=white)](#access-over-https-for-pwa-install)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-buy_me_a_coffee-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/gunnarfinkeldeh)
 
 <br/>
 
@@ -250,6 +251,12 @@ computed on read from an immutable start date, so they never drift.
 
 See [docs/plans/2026-07-02-squirrel-design.md](docs/plans/2026-07-02-squirrel-design.md)
 for the full design.
+
+## Support
+
+Squirrel is free and open source, and always will be. If it's saved you money —
+or you just like it — you can [buy me a coffee on Ko-fi](https://ko-fi.com/gunnarfinkeldeh) ☕.
+Entirely optional, hugely appreciated.
 
 ## Acknowledgements
 
