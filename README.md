@@ -207,6 +207,8 @@ volumes:
 
 If your stack already has a top-level `volumes:` block, merge these two entries into it rather than adding a second `volumes:` key. Then in Squirrel → **Settings**, set *ntfy server* to `http://ntfy` — Squirrel publishes to the bundled server over the internal Docker network — and subscribe your phone's ntfy app to `http://YOUR-NAS-IP:8481/<topic>` (the external address).
 
+> **On your phone, point the ntfy app at your NAS — not `http://ntfy`.** That hostname only resolves *inside* the Docker network, so your phone can't reach it. In the ntfy app, set the server to `http://YOUR-NAS-IP:8481`: either open **Settings → Default server** and set it there, or when adding the subscription choose **Use another server** and enter it. If you used ntfy.sh before, make sure the app now points at your local server (not `ntfy.sh`) — otherwise the subscription listens to the wrong server and no notifications arrive.
+
 ### Telegram
 
 1. Message [@BotFather](https://t.me/botfather) on Telegram and run `/newbot`. Follow the prompts and copy the bot token.
@@ -214,6 +216,8 @@ If your stack already has a top-level `volumes:` block, merge these two entries 
 3. Send your new bot a message on Telegram (anything will do).
 4. Click **Detect** in Settings to fill in your chat ID automatically.
 5. Click **Test Telegram** to send a test message.
+
+> **Detect finds nothing?** Telegram sometimes doesn't surface your first message right away — send the bot a second message (or wait a few seconds), then click **Detect** again. To check directly, open `https://api.telegram.org/bot<your-token>/getUpdates` in a browser: your messages appear as JSON, and you can copy the `chat.id` value straight into the **Chat id** field by hand if Detect still comes up empty.
 
 ### Email
 
