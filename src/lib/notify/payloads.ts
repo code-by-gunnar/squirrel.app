@@ -41,23 +41,26 @@ export function isChannelEnabled(s: AppSettings, id: ChannelId): boolean {
 }
 
 // --- whole settings form (used by the save action; tested here) ---
+// A stored flag is "on" only when it equals "1" (matches isChannelEnabled).
+const flag = z.string().transform((v) => v === "1");
+
 export const settingsFormSchema = z
   .object({
     base_currency: z.string().trim().length(3).toUpperCase(),
     notify_lead_days: z.coerce.number().int().min(0).max(60),
 
-    ntfy_enabled: z.coerce.boolean(),
+    ntfy_enabled: flag,
     ntfy_server: z.string().trim().url().or(z.literal("")),
     ntfy_topic: z.string().trim().max(120),
 
-    telegram_enabled: z.coerce.boolean(),
+    telegram_enabled: flag,
     telegram_bot_token: z.string().trim().max(200),
     telegram_chat_id: z.string().trim().max(64),
 
-    email_enabled: z.coerce.boolean(),
+    email_enabled: flag,
     email_smtp_host: z.string().trim().max(255),
     email_smtp_port: z.string().trim().max(6),
-    email_smtp_secure: z.coerce.boolean(),
+    email_smtp_secure: flag,
     email_smtp_user: z.string().trim().max(255),
     email_smtp_pass: z.string().max(255),
     email_from: z.string().trim().max(255),

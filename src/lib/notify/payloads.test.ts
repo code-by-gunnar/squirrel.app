@@ -91,4 +91,9 @@ describe("settingsFormSchema", () => {
     const r = settingsFormSchema.safeParse({ ...raw, email_enabled: "1", email_smtp_host: "h" });
     expect(r.success).toBe(false);
   });
+  it('treats a "0" flag as false, not true', () => {
+    const r = settingsFormSchema.safeParse({ ...raw, ntfy_enabled: "0", ntfy_topic: "" });
+    expect(r.success).toBe(true); // ntfy disabled => topic not required
+    if (r.success) expect(r.data.ntfy_enabled).toBe(false);
+  });
 });
