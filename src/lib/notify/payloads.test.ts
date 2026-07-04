@@ -79,21 +79,23 @@ describe("settingsFormSchema", () => {
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.base_currency).toBe("GBP");
   });
-  it("rejects ntfy enabled without a topic", () => {
-    const r = settingsFormSchema.safeParse({ ...raw, ntfy_topic: "" });
-    expect(r.success).toBe(false);
-  });
-  it("rejects telegram enabled without token/chat id", () => {
-    const r = settingsFormSchema.safeParse({ ...raw, telegram_enabled: "1" });
-    expect(r.success).toBe(false);
-  });
-  it("rejects email enabled without host/from/to", () => {
-    const r = settingsFormSchema.safeParse({ ...raw, email_enabled: "1", email_smtp_host: "h" });
-    expect(r.success).toBe(false);
+  it("accepts an enabled channel with blank config (inert until configured, not a form error)", () => {
+    // Save must never be blocked by an enabled-but-unconfigured channel;
+    // isConfigured gates sending, and the per-channel Test button reports gaps.
+    const r1 = settingsFormSchema.safeParse({ ...raw, ntfy_topic: "" });
+    const r2 = settingsFormSchema.safeParse({ ...raw, telegram_enabled: "1" });
+    const r3 = settingsFormSchema.safeParse({ ...raw, email_enabled: "1", email_smtp_host: "h" });
+    expect(r1.success).toBe(true);
+    expect(r2.success).toBe(true);
+    expect(r3.success).toBe(true);
   });
   it('treats a "0" flag as false, not true', () => {
     const r = settingsFormSchema.safeParse({ ...raw, ntfy_enabled: "0", ntfy_topic: "" });
-    expect(r.success).toBe(true); // ntfy disabled => topic not required
+    expect(r.success).toBe(true);
     if (r.success) expect(r.data.ntfy_enabled).toBe(false);
+  });
+  it("still rejects a bad base currency (field-level validation intact)", () => {
+    const r = settingsFormSchema.safeParse({ ...raw, base_currency: "POUND" });
+    expect(r.success).toBe(false);
   });
 });

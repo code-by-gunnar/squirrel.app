@@ -44,36 +44,24 @@ export function isChannelEnabled(s: AppSettings, id: ChannelId): boolean {
 // A stored flag is "on" only when it equals "1" (matches isChannelEnabled).
 const flag = z.string().transform((v) => v === "1");
 
-export const settingsFormSchema = z
-  .object({
-    base_currency: z.string().trim().length(3).toUpperCase(),
-    notify_lead_days: z.coerce.number().int().min(0).max(60),
+export const settingsFormSchema = z.object({
+  base_currency: z.string().trim().length(3).toUpperCase(),
+  notify_lead_days: z.coerce.number().int().min(0).max(60),
 
-    ntfy_enabled: flag,
-    ntfy_server: z.string().trim().url().or(z.literal("")),
-    ntfy_topic: z.string().trim().max(120),
+  ntfy_enabled: flag,
+  ntfy_server: z.string().trim().url().or(z.literal("")),
+  ntfy_topic: z.string().trim().max(120),
 
-    telegram_enabled: flag,
-    telegram_bot_token: z.string().trim().max(200),
-    telegram_chat_id: z.string().trim().max(64),
+  telegram_enabled: flag,
+  telegram_bot_token: z.string().trim().max(200),
+  telegram_chat_id: z.string().trim().max(64),
 
-    email_enabled: flag,
-    email_smtp_host: z.string().trim().max(255),
-    email_smtp_port: z.string().trim().max(6),
-    email_smtp_secure: flag,
-    email_smtp_user: z.string().trim().max(255),
-    email_smtp_pass: z.string().max(255),
-    email_from: z.string().trim().max(255),
-    email_to: z.string().trim().max(255),
-  })
-  .superRefine((v, ctx) => {
-    if (v.ntfy_enabled && !v.ntfy_topic) {
-      ctx.addIssue({ code: "custom", path: ["ntfy_topic"], message: "ntfy topic is required when ntfy is on." });
-    }
-    if (v.telegram_enabled && (!v.telegram_bot_token || !v.telegram_chat_id)) {
-      ctx.addIssue({ code: "custom", path: ["telegram_chat_id"], message: "Telegram needs a bot token and chat id when on." });
-    }
-    if (v.email_enabled && (!v.email_smtp_host || !v.email_from || !v.email_to)) {
-      ctx.addIssue({ code: "custom", path: ["email_smtp_host"], message: "Email needs SMTP host, from and to addresses when on." });
-    }
-  });
+  email_enabled: flag,
+  email_smtp_host: z.string().trim().max(255),
+  email_smtp_port: z.string().trim().max(6),
+  email_smtp_secure: flag,
+  email_smtp_user: z.string().trim().max(255),
+  email_smtp_pass: z.string().max(255),
+  email_from: z.string().trim().max(255),
+  email_to: z.string().trim().max(255),
+});
