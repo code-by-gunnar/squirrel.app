@@ -29,6 +29,9 @@ immutable start date, so nothing to sync and nothing drifts.
 
 <table>
   <tr>
+    <td colspan="2"><img src="docs/screenshot-reports.png" alt="Reports page: monthly spend chart plus total-spent-to-date" /><br/><sub><b>Reports</b> — actual spend over time, with totals, from a ledger of every charge</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src="docs/screenshot-subscriptions.png" alt="Subscriptions grid with brand logos, prices and status" /><br/><sub><b>Subscriptions</b> — every service with its logo, price and next renewal</sub></td>
     <td width="50%"><img src="docs/screenshot-calendar.png" alt="Calendar view of upcoming renewals" /><br/><sub><b>Calendar</b> — see the month at a glance</sub></td>
   </tr>
@@ -45,6 +48,10 @@ immutable start date, so nothing to sync and nothing drifts.
   each with an auto-fetched brand logo (or pick one from a few candidates).
 - **Dashboard** — monthly & yearly spend, spend by category, upcoming renewals.
 - **Calendar** — a month view of exactly when each subscription renews.
+- **Reports** — a ledger records every real charge (with the FX rate locked at
+  the time), then charts your actual monthly spend over time plus total-spent-to-date
+  and this-year totals. This is real cashflow, distinct from the dashboard's
+  normalized monthly average.
 - **Search, filter & sort** — filter by category or status (active / cancelled /
   free / inactive); sort by next renewal, name, or price (high–low).
 - **Multi-currency** — track subs in any currency; totals convert to your base
@@ -58,6 +65,9 @@ immutable start date, so nothing to sync and nothing drifts.
   but can still use.
 - **Free-tier tracking** — flag a service you're on the free plan for. It's kept
   for awareness but left out of spend totals, renewals and reminders.
+- **Export & backup** — download your payment history and subscriptions as CSV
+  for spreadsheets or tax, or take a full JSON backup and restore it onto any
+  Squirrel instance (a one-click, atomic replace). Your data, portable.
 - **Install as an app (PWA)** — add Squirrel to your phone's home screen for a
   native-style experience with a bottom nav bar and slide-up forms. (Installing
   standalone needs HTTPS — see [Access over HTTPS](#access-over-https-for-pwa-install).)

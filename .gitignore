@@ -47,3 +47,6 @@ next-env.d.ts
 /.playwright-mcp
 /*.png
 
+
+# Local /impeccable critique snapshots (tooling output)
+.impeccable/
