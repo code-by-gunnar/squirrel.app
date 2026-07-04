@@ -5,6 +5,7 @@ import {
   text,
   real,
   index,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 /**
@@ -91,8 +92,45 @@ export const fxRates = sqliteTable("fx_rates", {
   fetchedAt: text("fetched_at").notNull(),
 });
 
+/**
+ * A ledger of actual past billing occurrences — one row per charge that has come
+ * due. Immutable historical facts: the amount and the FX rate are snapshotted at
+ * charge time and never rewritten. Future occurrences are NOT stored here; they
+ * stay computed on read from the subscription's schedule, so nothing drifts.
+ */
+export const payments = sqliteTable(
+  "payments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    subscriptionId: integer("subscription_id")
+      .notNull()
+      .references(() => subscriptions.id, { onDelete: "cascade" }),
+    // ISO "YYYY-MM-DD" — the date this charge fell due.
+    paidOn: text("paid_on").notNull(),
+    // Native amount and currency at charge time.
+    amount: real("amount").notNull(),
+    currencyCode: text("currency_code").notNull(),
+    // Amount converted into the base currency using the rate on `paidOn`.
+    amountBase: real("amount_base").notNull(),
+    baseCurrency: text("base_currency").notNull(),
+    // The native->base rate used (1 when native == base), kept for transparency.
+    fxRate: real("fx_rate").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`),
+  },
+  (t) => [
+    index("idx_payments_subscription").on(t.subscriptionId),
+    index("idx_payments_paid_on").on(t.paidOn),
+    // One charge per subscription per date — makes backfill/append idempotent.
+    uniqueIndex("uniq_payments_sub_date").on(t.subscriptionId, t.paidOn),
+  ],
+);
+
 export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 export type Category = typeof categories.$inferSelect;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type FxRate = typeof fxRates.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type NewPayment = typeof payments.$inferInsert;

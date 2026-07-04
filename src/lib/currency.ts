@@ -62,3 +62,21 @@ export function convertToBase(
 export function ratesToMap(rows: FxRate[]): Map<string, number> {
   return new Map(rows.map((r) => [r.code, r.rateToBase]));
 }
+
+/**
+ * Look up a rate for `dateISO` in a date-keyed map, falling back to the nearest
+ * earlier date (covers weekends/holidays with no ECB fixing). Returns null when
+ * the map has no date on or before `dateISO`.
+ */
+export function rateForDate(
+  ratesByDate: Map<string, number>,
+  dateISO: string,
+): number | null {
+  const exact = ratesByDate.get(dateISO);
+  if (exact != null) return exact;
+  let best: string | null = null;
+  for (const d of ratesByDate.keys()) {
+    if (d <= dateISO && (best === null || d > best)) best = d;
+  }
+  return best === null ? null : ratesByDate.get(best) ?? null;
+}

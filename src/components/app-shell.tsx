@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   CreditCard,
   CalendarDays,
+  BarChart3,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/subscriptions", label: "Subscriptions", icon: CreditCard },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -115,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 backdrop-blur-md md:hidden">
         <div
-          className="grid grid-cols-4"
+          className="grid grid-cols-5"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
           {NAV.map(({ href, label, icon: Icon }) => {

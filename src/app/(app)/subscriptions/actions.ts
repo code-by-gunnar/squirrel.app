@@ -17,6 +17,29 @@ import {
   searchLogoCandidates,
   type LogoCandidate,
 } from "@/lib/logo";
+import {
+  backfillPayments,
+  rebuildPaymentsForSub,
+  deletePaymentsForSub,
+} from "@/lib/payments";
+
+// Ledger sync is best-effort: the subscription is already saved, and the daily
+// scheduler will record any past charges we miss here (just with today's FX
+// instead of the historical rate), so a failure must never fail the save.
+async function safeBackfill(id: number) {
+  try {
+    await backfillPayments(id);
+  } catch (e) {
+    console.error("[squirrel] payment backfill failed", e);
+  }
+}
+async function safeRebuild(id: number) {
+  try {
+    await rebuildPaymentsForSub(id);
+  } catch (e) {
+    console.error("[squirrel] payment ledger rebuild failed", e);
+  }
+}
 
 const optionalString = z
   .string()
@@ -137,9 +160,26 @@ export async function saveSubscription(
 
   try {
     if (id) {
+      const before = getSubscription(id);
       db.update(subscriptions).set(values).where(eq(subscriptions.id, id)).run();
+
+      if (values.free) {
+        // A free sub has no charges — clear any history it accumulated.
+        deletePaymentsForSub(id);
+      } else {
+        // Rebuild history only when the schedule moves (or it just became paid).
+        // A price/currency-only edit leaves past charges as the facts they were.
+        const scheduleChanged =
+          !before ||
+          before.free ||
+          before.startDate !== values.startDate ||
+          before.billingCycle !== values.billingCycle ||
+          before.billingInterval !== values.billingInterval;
+        if (scheduleChanged) await safeRebuild(id);
+      }
     } else {
-      db.insert(subscriptions).values(values).run();
+      const info = db.insert(subscriptions).values(values).run();
+      if (!values.free) await safeBackfill(Number(info.lastInsertRowid));
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to save" };
@@ -148,6 +188,7 @@ export async function saveSubscription(
   revalidatePath("/subscriptions");
   revalidatePath("/");
   revalidatePath("/calendar");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
@@ -160,6 +201,7 @@ export async function deleteSubscription(id: number): Promise<SaveState> {
   revalidatePath("/subscriptions");
   revalidatePath("/");
   revalidatePath("/calendar");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
@@ -167,6 +209,7 @@ export async function toggleActive(id: number, active: boolean): Promise<SaveSta
   db.update(subscriptions).set({ active }).where(eq(subscriptions.id, id)).run();
   revalidatePath("/subscriptions");
   revalidatePath("/");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
@@ -194,6 +237,7 @@ export async function cancelSubscription(id: number): Promise<SaveState> {
   revalidatePath("/subscriptions");
   revalidatePath("/");
   revalidatePath("/calendar");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
@@ -207,6 +251,7 @@ export async function reactivateSubscription(id: number): Promise<SaveState> {
   revalidatePath("/subscriptions");
   revalidatePath("/");
   revalidatePath("/calendar");
+  revalidatePath("/reports");
   return { ok: true };
 }
 

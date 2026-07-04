@@ -7,6 +7,7 @@ import {
   yearlyEquivalent,
   describeCycle,
   renewalsInRange,
+  chargeDates,
   toISODate,
 } from "./billing";
 
@@ -152,5 +153,67 @@ describe("describeCycle", () => {
   it("labels multi-interval cycles", () => {
     expect(describeCycle("month", 3)).toBe("Every 3 months");
     expect(describeCycle("week", 2)).toBe("Every 2 weeks");
+  });
+});
+
+describe("chargeDates", () => {
+  const from = new Date(2026, 6, 3); // 2026-07-03
+
+  it("includes the start date as the first charge", () => {
+    const dates = chargeDates(
+      { startDate: "2026-07-03", cycle: "month", interval: 1 },
+      from,
+    );
+    expect(dates).toEqual(["2026-07-03"]);
+  });
+
+  it("lists one charge per month up to today", () => {
+    const dates = chargeDates(
+      { startDate: "2026-04-06", cycle: "month", interval: 1 },
+      from,
+    );
+    expect(dates).toEqual(["2026-04-06", "2026-05-06", "2026-06-06"]);
+    // 2026-07-06 hasn't happened yet on the 3rd.
+  });
+
+  it("honours a multi-month interval", () => {
+    const dates = chargeDates(
+      { startDate: "2026-01-15", cycle: "month", interval: 3 },
+      from,
+    );
+    // Jan 15 -> Apr 15 -> (Jul 15 is after today, excluded).
+    expect(dates).toEqual(["2026-01-15", "2026-04-15"]);
+  });
+
+  it("is empty for a free sub", () => {
+    const dates = chargeDates(
+      { startDate: "2026-01-01", cycle: "month", interval: 1, free: true },
+      from,
+    );
+    expect(dates).toEqual([]);
+  });
+
+  it("is empty for a future start date", () => {
+    const dates = chargeDates(
+      { startDate: "2026-09-01", cycle: "month", interval: 1 },
+      from,
+    );
+    expect(dates).toEqual([]);
+  });
+
+  it("stops a cancelled sub before its end date (no charge for the final paid period)", () => {
+    // Cancelled, access ends 2026-06-06; the 2026-06-06 occurrence is the end of
+    // the already-paid period and must NOT be recorded as a new charge.
+    const dates = chargeDates(
+      {
+        startDate: "2026-04-06",
+        cycle: "month",
+        interval: 1,
+        cancelled: true,
+        endsOn: "2026-06-06",
+      },
+      from,
+    );
+    expect(dates).toEqual(["2026-04-06", "2026-05-06"]);
   });
 });

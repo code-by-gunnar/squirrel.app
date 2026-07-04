@@ -145,6 +145,37 @@ export function renewalsInRange(
   return out;
 }
 
+/**
+ * The ISO dates a subscription has actually been charged on, from its start date
+ * up to `from` (today). Empty for a free sub or a future start date. A cancelled
+ * sub stops before `endsOn` — its final, already-paid period is not re-charged.
+ */
+export function chargeDates(
+  opts: {
+    startDate: string;
+    cycle: BillingCycle;
+    interval: number;
+    free?: boolean;
+    cancelled?: boolean;
+    endsOn?: string | null;
+  },
+  from: Date = new Date(),
+): string[] {
+  if (opts.free) return [];
+  const start = parseISODate(opts.startDate);
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  if (today < start) return [];
+
+  let dates = renewalsInRange(opts.startDate, opts.cycle, opts.interval, start, today).map(
+    toISODate,
+  );
+  if (opts.cancelled && opts.endsOn) {
+    const endsOn = opts.endsOn;
+    dates = dates.filter((d) => d < endsOn);
+  }
+  return dates;
+}
+
 /** Human label for a cycle/interval pair, e.g. (month, 1) -> "Monthly". */
 export function describeCycle(cycle: BillingCycle, interval: number): string {
   const step = Math.max(1, Math.floor(interval));

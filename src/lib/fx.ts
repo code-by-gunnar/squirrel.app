@@ -9,11 +9,20 @@ import { getBaseCurrency } from "@/lib/settings";
  * Free, no API key, ECB reference rates updated on working days.
  */
 const FX_API = process.env.FX_API_URL ?? "https://api.frankfurter.app/latest";
+// Host without the "/latest" path, so we can also hit the time-series endpoint.
+const FX_HOST = FX_API.replace(/\/latest\/?$/, "");
 
 type FrankfurterResponse = {
   base: string;
   date: string;
   rates: Record<string, number>;
+};
+
+type FrankfurterSeriesResponse = {
+  base: string;
+  start_date: string;
+  end_date: string;
+  rates: Record<string, Record<string, number>>;
 };
 
 export async function refreshFxRates(): Promise<{ ok: boolean; error?: string }> {
@@ -52,4 +61,34 @@ export async function refreshFxRates(): Promise<{ ok: boolean; error?: string }>
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "FX fetch failed" };
   }
+}
+
+/**
+ * Historical "1 unit of `code` = N base" rates for every working day in
+ * [startISO, endISO], from Frankfurter's time-series endpoint (one request).
+ * Returns a map keyed by ISO date. Empty when `code === base` (caller uses 1).
+ * ECB publishes no rate on weekends/holidays, so those dates are absent — use
+ * `rateForDate()` to fall back to the nearest prior available day.
+ */
+export async function getRatesForRange(
+  code: string,
+  base: string,
+  startISO: string,
+  endISO: string,
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (code === base) return out;
+
+  const url = `${FX_HOST}/${startISO}..${endISO}?from=${encodeURIComponent(
+    base,
+  )}&to=${encodeURIComponent(code)}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`FX series API ${res.status}`);
+  const data = (await res.json()) as FrankfurterSeriesResponse;
+
+  for (const [date, rates] of Object.entries(data.rates ?? {})) {
+    const perBase = rates[code];
+    if (perBase && perBase > 0) out.set(date, 1 / perBase);
+  }
+  return out;
 }
