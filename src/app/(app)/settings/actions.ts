@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -12,39 +11,56 @@ import {
   settings,
 } from "@/db/schema";
 import { saveSettings, getSettings } from "@/lib/settings";
-import { sendNtfy } from "@/lib/notify";
+import { settingsFormSchema } from "@/lib/notify/payloads";
+import {
+  channelById,
+  hasActiveChannel,
+  detectTelegramChatId as detectTelegramChatIdLib,
+} from "@/lib/notify";
+import type { ChannelId } from "@/lib/notify/types";
 import { runDailyReminders } from "@/lib/reminders";
 import { refreshFxRates } from "@/lib/fx";
 import { parseBackup } from "@/lib/backup";
 
 export type ActionState = { ok?: boolean; error?: string };
 
-const GeneralSchema = z.object({
-  base_currency: z.string().trim().length(3).toUpperCase(),
-  notify_lead_days: z.coerce.number().int().min(0).max(60),
-  ntfy_server: z.string().trim().url().or(z.literal("")),
-  ntfy_topic: z.string().trim().max(120),
-});
-
 export async function saveGeneralSettings(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = GeneralSchema.safeParse({
-    base_currency: formData.get("base_currency"),
-    notify_lead_days: formData.get("notify_lead_days"),
-    ntfy_server: formData.get("ntfy_server"),
-    ntfy_topic: formData.get("ntfy_topic"),
-  });
+  const raw = Object.fromEntries(
+    [
+      "base_currency", "notify_lead_days",
+      "ntfy_enabled", "ntfy_server", "ntfy_topic",
+      "telegram_enabled", "telegram_bot_token", "telegram_chat_id",
+      "email_enabled", "email_smtp_host", "email_smtp_port", "email_smtp_secure",
+      "email_smtp_user", "email_smtp_pass", "email_from", "email_to",
+    ].map((k) => [k, formData.get(k) ?? ""]),
+  );
+
+  const parsed = settingsFormSchema.safeParse(raw);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
+  const v = parsed.data;
 
   saveSettings({
-    base_currency: parsed.data.base_currency,
-    notify_lead_days: String(parsed.data.notify_lead_days),
-    ntfy_server: parsed.data.ntfy_server || "https://ntfy.sh",
-    ntfy_topic: parsed.data.ntfy_topic,
+    base_currency: v.base_currency,
+    notify_lead_days: String(v.notify_lead_days),
+    ntfy_enabled: v.ntfy_enabled ? "1" : "",
+    ntfy_server: v.ntfy_server || "https://ntfy.sh",
+    ntfy_topic: v.ntfy_topic,
+    telegram_enabled: v.telegram_enabled ? "1" : "",
+    telegram_bot_token: v.telegram_bot_token,
+    telegram_chat_id: v.telegram_chat_id,
+    email_enabled: v.email_enabled ? "1" : "",
+    email_smtp_host: v.email_smtp_host,
+    email_smtp_port: v.email_smtp_port,
+    email_smtp_secure: v.email_smtp_secure ? "1" : "",
+    email_smtp_user: v.email_smtp_user,
+    email_smtp_pass: v.email_smtp_pass,
+    email_from: v.email_from,
+    email_to: v.email_to,
   });
 
   revalidatePath("/settings");
@@ -53,10 +69,13 @@ export async function saveGeneralSettings(
   return { ok: true };
 }
 
-export async function sendTestNotification(): Promise<ActionState> {
+/** Send a one-off test through a single channel. */
+export async function sendTestNotification(channelId: ChannelId): Promise<ActionState> {
   const s = getSettings();
-  if (!s.ntfy_topic) return { error: "Set an ntfy topic first." };
-  const err = await sendNtfy(s.ntfy_server, s.ntfy_topic, {
+  const ch = channelById(channelId);
+  if (!ch) return { error: "Unknown channel." };
+  if (!ch.isConfigured(s)) return { error: `Configure ${ch.label} first.` };
+  const err = await ch.send(s, {
     title: "Squirrel test",
     message: "🐿️ Notifications are working! You'll get renewal reminders here.",
     tags: ["white_check_mark"],
@@ -64,10 +83,16 @@ export async function sendTestNotification(): Promise<ActionState> {
   return err ? { error: err } : { ok: true };
 }
 
+export async function detectTelegramChatId(
+  token: string,
+): Promise<{ chatId?: string; error?: string }> {
+  return detectTelegramChatIdLib(token.trim());
+}
+
 /** Run the renewal-reminder check right now (same logic as the daily job). */
 export async function runRemindersNow(): Promise<ActionState & { sent?: number }> {
   const s = getSettings();
-  if (!s.ntfy_topic) return { error: "Set an ntfy topic first." };
+  if (!hasActiveChannel(s)) return { error: "Enable and configure a notification channel first." };
   const res = await runDailyReminders();
   if (res.error) return { error: res.error };
   return { ok: true, sent: res.sent };

@@ -30,3 +30,23 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
+  # Optional self-hosted ntfy so the default channel needs no third party.
+  # Point Squirrel's "ntfy server" setting at http://ntfy (internal), and
+  # subscribe your phone to http://YOUR-NAS-IP:8481/<topic>.
+  ntfy:
+    image: binwiederhier/ntfy:latest
+    container_name: squirrel-ntfy
+    command: serve
+    environment:
+      NTFY_BASE_URL: "${NTFY_BASE_URL:-http://localhost:8481}"
+    ports:
+      - "8481:80"
+    volumes:
+      - ntfy-cache:/var/cache/ntfy
+      - ntfy-data:/var/lib/ntfy
+    restart: unless-stopped
+
+volumes:
+  ntfy-cache:
+  ntfy-data:

@@ -24,6 +24,7 @@ import { APP_VERSION } from "@/lib/version";
 import {
   saveGeneralSettings,
   sendTestNotification,
+  detectTelegramChatId,
   runRemindersNow,
   addCategory,
   updateCategory,
@@ -43,6 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -246,17 +248,34 @@ function GeneralCard({ settings }: { settings: AppSettings }) {
   const [state, formAction, pending] = useActionState(saveGeneralSettings, initial);
   const [currency, setCurrency] = useState(settings.base_currency);
   const [testing, startTest] = useTransition();
+  const [ntfyOn, setNtfyOn] = useState(settings.ntfy_enabled === "1");
+  const [tgOn, setTgOn] = useState(settings.telegram_enabled === "1");
+  const [emailOn, setEmailOn] = useState(settings.email_enabled === "1");
+  const [emailSecure, setEmailSecure] = useState(settings.email_smtp_secure === "1");
+  const [chatId, setChatId] = useState(settings.telegram_chat_id);
+  const tokenRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (state.ok) toast.success("Settings saved");
     else if (state.error) toast.error(state.error);
   }, [state]);
 
-  function runTest() {
+  function testChannel(id: "ntfy" | "telegram" | "email") {
     startTest(async () => {
-      const res = await sendTestNotification();
+      const res = await sendTestNotification(id);
       if (res.error) toast.error(res.error);
       else toast.success("Test notification sent");
+    });
+  }
+
+  function detectChatId() {
+    startTest(async () => {
+      const res = await detectTelegramChatId(tokenRef.current?.value ?? "");
+      if (res.error) toast.error(res.error);
+      else if (res.chatId) {
+        setChatId(res.chatId);
+        toast.success(`Detected chat id ${res.chatId}`);
+      }
     });
   }
 
@@ -315,47 +334,119 @@ function GeneralCard({ settings }: { settings: AppSettings }) {
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="ntfy_server">ntfy server</Label>
-              <Input
-                id="ntfy_server"
-                name="ntfy_server"
-                defaultValue={settings.ntfy_server}
-                placeholder="https://ntfy.sh"
-              />
+          <div className="space-y-4">
+            <p className="text-sm font-medium">Notification channels</p>
+
+            {/* ntfy */}
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>ntfy</Label>
+                  <p className="text-xs text-muted-foreground">Push to the ntfy app.</p>
+                </div>
+                <Switch checked={ntfyOn} onCheckedChange={(v) => setNtfyOn(Boolean(v))} />
+              </div>
+              <input type="hidden" name="ntfy_enabled" value={ntfyOn ? "1" : ""} />
+              <div className={cn("mt-4 grid gap-4 sm:grid-cols-2", !ntfyOn && "hidden")}>
+                <div className="space-y-2">
+                  <Label htmlFor="ntfy_server">Server</Label>
+                  <Input id="ntfy_server" name="ntfy_server" defaultValue={settings.ntfy_server} placeholder="https://ntfy.sh" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ntfy_topic">Topic</Label>
+                  <Input id="ntfy_topic" name="ntfy_topic" defaultValue={settings.ntfy_topic} placeholder="squirrel-alerts-x8f2" />
+                  <p className="text-xs text-muted-foreground">Subscribe to this topic in the ntfy app to get pushes.</p>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => testChannel("ntfy")} disabled={testing}>
+                <Send className="size-4" /> Test ntfy
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="ntfy_topic">ntfy topic</Label>
-              <Input
-                id="ntfy_topic"
-                name="ntfy_topic"
-                defaultValue={settings.ntfy_topic}
-                placeholder="squirrel-alerts-x8f2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Subscribe to this topic in the ntfy app to get pushes.
-              </p>
+
+            {/* Telegram */}
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Telegram</Label>
+                  <p className="text-xs text-muted-foreground">Create a bot with @BotFather, then paste its token.</p>
+                </div>
+                <Switch checked={tgOn} onCheckedChange={(v) => setTgOn(Boolean(v))} />
+              </div>
+              <input type="hidden" name="telegram_enabled" value={tgOn ? "1" : ""} />
+              <div className={cn("mt-4 grid gap-4 sm:grid-cols-2", !tgOn && "hidden")}>
+                <div className="space-y-2">
+                  <Label htmlFor="telegram_bot_token">Bot token</Label>
+                  <Input ref={tokenRef} id="telegram_bot_token" name="telegram_bot_token" type="password" defaultValue={settings.telegram_bot_token} placeholder="123456:ABC-DEF..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telegram_chat_id">Chat id</Label>
+                  <div className="flex gap-2">
+                    <Input id="telegram_chat_id" name="telegram_chat_id" value={chatId} onChange={(e) => setChatId(e.target.value)} placeholder="987654321" />
+                    <Button type="button" variant="outline" onClick={detectChatId} disabled={testing}>Detect</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Message your bot once, then click Detect.</p>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => testChannel("telegram")} disabled={testing}>
+                <Send className="size-4" /> Test Telegram
+              </Button>
             </div>
+
+            {/* Email */}
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Email</Label>
+                  <p className="text-xs text-muted-foreground">Send reminders over SMTP.</p>
+                </div>
+                <Switch checked={emailOn} onCheckedChange={(v) => setEmailOn(Boolean(v))} />
+              </div>
+              <input type="hidden" name="email_enabled" value={emailOn ? "1" : ""} />
+              <input type="hidden" name="email_smtp_secure" value={emailSecure ? "1" : ""} />
+              <div className={cn("mt-4 grid gap-4 sm:grid-cols-2", !emailOn && "hidden")}>
+                <div className="space-y-2">
+                  <Label htmlFor="email_smtp_host">SMTP host</Label>
+                  <Input id="email_smtp_host" name="email_smtp_host" defaultValue={settings.email_smtp_host} placeholder="smtp.gmail.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_smtp_port">SMTP port</Label>
+                  <Input id="email_smtp_port" name="email_smtp_port" type="number" defaultValue={settings.email_smtp_port} placeholder="587" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_smtp_user">Username</Label>
+                  <Input id="email_smtp_user" name="email_smtp_user" defaultValue={settings.email_smtp_user} placeholder="you@gmail.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_smtp_pass">Password</Label>
+                  <Input id="email_smtp_pass" name="email_smtp_pass" type="password" defaultValue={settings.email_smtp_pass} placeholder="app password" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_from">From</Label>
+                  <Input id="email_from" name="email_from" defaultValue={settings.email_from} placeholder="Squirrel <you@gmail.com>" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_to">To</Label>
+                  <Input id="email_to" name="email_to" defaultValue={settings.email_to} placeholder="you@gmail.com" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={emailSecure} onCheckedChange={(v) => setEmailSecure(Boolean(v))} />
+                  <Label>Use TLS on connect (port 465)</Label>
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => testChannel("email")} disabled={testing}>
+                <Send className="size-4" /> Test email
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Tokens and passwords are stored in the app database and are included in JSON backups.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
               Save changes
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={runTest}
-              disabled={testing}
-            >
-              {testing ? (
-                <LoaderCircle className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
-              Send test
             </Button>
             <Button
               type="button"
