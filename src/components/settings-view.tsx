@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   BellRing,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, PaymentMethod } from "@/db/schema";
@@ -72,11 +73,46 @@ export function SettingsView({
       <AppearanceCard />
       <CategoriesCard categories={categories} />
       <PaymentMethodsCard paymentMethods={paymentMethods} />
+      <DataCard />
 
       <p className="pt-2 text-center text-xs text-muted-foreground">
         🐿️ Squirrel v{APP_VERSION}
       </p>
     </div>
+  );
+}
+
+function DataCard() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Data</CardTitle>
+        <CardDescription>
+          Export to CSV for spreadsheets, tax or a backup. Payment history is the
+          full ledger of charges; subscriptions is a snapshot of what you track.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 sm:flex-row">
+        <Button
+          render={<a href="/api/export/payments" download />}
+          nativeButton={false}
+          variant="outline"
+          className="justify-start gap-2"
+        >
+          <Download className="size-4" />
+          Payment history (.csv)
+        </Button>
+        <Button
+          render={<a href="/api/export/subscriptions" download />}
+          nativeButton={false}
+          variant="outline"
+          className="justify-start gap-2"
+        >
+          <Download className="size-4" />
+          Subscriptions (.csv)
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
