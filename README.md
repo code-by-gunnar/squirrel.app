@@ -226,6 +226,8 @@ If your stack already has a top-level `volumes:` block, merge these two entries 
 3. Enter your sender email address (From) and the recipient address (To).
 4. Click **Test email** to send a test message.
 
+> **Gmail: use a real App Password, not your account password.** The error `534-5.7.9 Application-specific password required` means Gmail rejected your normal login password. Turn on **2-Step Verification**, generate a 16-character app password at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), and use *that* as the SMTP password (username = your full Gmail address). Port `587` → TLS toggle **off** (STARTTLS); port `465` → TLS **on**. A port/TLS mismatch is the other common cause of a failed send.
+
 Channel tokens and passwords are stored in Squirrel's database and included in JSON backups — keep backups private.
 
 ## Local development
