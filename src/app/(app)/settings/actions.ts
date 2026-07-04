@@ -4,10 +4,18 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, paymentMethods } from "@/db/schema";
+import {
+  categories,
+  paymentMethods,
+  subscriptions,
+  payments,
+  settings,
+} from "@/db/schema";
 import { saveSettings, getSettings } from "@/lib/settings";
 import { sendNtfy } from "@/lib/notify";
 import { runDailyReminders } from "@/lib/reminders";
+import { refreshFxRates } from "@/lib/fx";
+import { parseBackup } from "@/lib/backup";
 
 export type ActionState = { ok?: boolean; error?: string };
 
@@ -114,4 +122,56 @@ export async function deletePaymentMethod(id: number): Promise<ActionState> {
   revalidatePath("/settings");
   revalidatePath("/subscriptions");
   return { ok: true };
+}
+
+// --- Backup / restore ---
+
+/**
+ * Restore a JSON backup, REPLACING all current data. Validated first, then done
+ * in a single transaction (children deleted before parents, parents inserted
+ * before children, IDs preserved) so it's atomic: any failure rolls back and
+ * leaves the existing data untouched. fxRates is left alone (a re-fetchable cache)
+ * and refreshed afterwards for any newly-present currencies.
+ */
+export async function importBackup(
+  json: string,
+): Promise<ActionState & { replaced?: number }> {
+  const parsed = parseBackup(json);
+  if (!parsed.ok) return { error: parsed.error };
+  const { data: backup } = parsed;
+  const d = backup.data;
+
+  try {
+    db.transaction((tx) => {
+      tx.delete(payments).run();
+      tx.delete(subscriptions).run();
+      tx.delete(categories).run();
+      tx.delete(paymentMethods).run();
+      tx.delete(settings).run();
+
+      if (d.categories.length) tx.insert(categories).values(d.categories).run();
+      if (d.paymentMethods.length)
+        tx.insert(paymentMethods).values(d.paymentMethods).run();
+      if (d.settings.length) tx.insert(settings).values(d.settings).run();
+      if (d.subscriptions.length)
+        tx.insert(subscriptions).values(d.subscriptions).run();
+      if (d.payments.length) tx.insert(payments).values(d.payments).run();
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Restore failed" };
+  }
+
+  // Best-effort: correct totals for any currencies new to this backup.
+  try {
+    await refreshFxRates();
+  } catch {
+    // the daily job / next read will catch up
+  }
+
+  revalidatePath("/");
+  revalidatePath("/subscriptions");
+  revalidatePath("/calendar");
+  revalidatePath("/reports");
+  revalidatePath("/settings");
+  return { ok: true, replaced: d.subscriptions.length };
 }

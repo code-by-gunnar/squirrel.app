@@ -1,11 +1,39 @@
 import "server-only";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { payments, subscriptions, categories } from "@/db/schema";
+import {
+  payments,
+  subscriptions,
+  categories,
+  paymentMethods,
+  settings,
+} from "@/db/schema";
 import { listSubscriptions } from "@/lib/subscriptions";
 import { describeCycle, type BillingCycle } from "@/lib/billing";
 import { getBaseCurrency } from "@/lib/settings";
 import { toCsv } from "@/lib/csv";
+import { APP_VERSION } from "@/lib/version";
+import { BACKUP_SCHEMA_VERSION, type Backup } from "@/lib/backup";
+
+/**
+ * A full, self-contained JSON backup of every user table (fxRates is excluded as
+ * a re-fetchable cache). Real IDs are kept so relations survive a restore.
+ */
+export function buildBackup(): Backup {
+  return {
+    app: "squirrel",
+    schema: BACKUP_SCHEMA_VERSION,
+    appVersion: APP_VERSION,
+    exportedAt: new Date().toISOString(),
+    data: {
+      settings: db.select().from(settings).all(),
+      categories: db.select().from(categories).all(),
+      paymentMethods: db.select().from(paymentMethods).all(),
+      subscriptions: db.select().from(subscriptions).all(),
+      payments: db.select().from(payments).all(),
+    },
+  };
+}
 
 /** Current subscriptions with their computed fields, as a CSV snapshot. */
 export function buildSubscriptionsCsv(): string {

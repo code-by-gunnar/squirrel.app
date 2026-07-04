@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
   LoaderCircle,
@@ -13,6 +14,7 @@ import {
   Sun,
   BellRing,
   Download,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, PaymentMethod } from "@/db/schema";
@@ -28,6 +30,7 @@ import {
   deleteCategory,
   addPaymentMethod,
   deletePaymentMethod,
+  importBackup,
   type ActionState,
 } from "@/app/(app)/settings/actions";
 import {
@@ -47,6 +50,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const initial: ActionState = {};
@@ -83,35 +94,150 @@ export function SettingsView({
 }
 
 function DataCard() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pending, start] = useTransition();
+  const [confirm, setConfirm] = useState<{
+    text: string;
+    subs: number;
+    payments: number;
+  } | null>(null);
+
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const parsed = JSON.parse(text);
+      setConfirm({
+        text,
+        subs: parsed?.data?.subscriptions?.length ?? 0,
+        payments: parsed?.data?.payments?.length ?? 0,
+      });
+    } catch {
+      toast.error("That file isn't valid JSON.");
+    }
+  }
+
+  function runRestore() {
+    if (!confirm) return;
+    const text = confirm.text;
+    start(async () => {
+      const res = await importBackup(text);
+      if (res.error) {
+        toast.error(res.error);
+      } else {
+        toast.success(`Restored ${res.replaced ?? 0} subscription(s) from backup.`);
+        setConfirm(null);
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Data</CardTitle>
         <CardDescription>
-          Export to CSV for spreadsheets, tax or a backup. Payment history is the
-          full ledger of charges; subscriptions is a snapshot of what you track.
+          Export to CSV for spreadsheets and tax, or take a full JSON backup you
+          can restore onto any Squirrel instance.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 sm:flex-row">
-        <Button
-          render={<a href="/api/export/payments" download />}
-          nativeButton={false}
-          variant="outline"
-          className="justify-start gap-2"
-        >
-          <Download className="size-4" />
-          Payment history (.csv)
-        </Button>
-        <Button
-          render={<a href="/api/export/subscriptions" download />}
-          nativeButton={false}
-          variant="outline"
-          className="justify-start gap-2"
-        >
-          <Download className="size-4" />
-          Subscriptions (.csv)
-        </Button>
+      <CardContent className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            render={<a href="/api/export/payments" download />}
+            nativeButton={false}
+            variant="outline"
+            className="justify-start gap-2"
+          >
+            <Download className="size-4" />
+            Payment history (.csv)
+          </Button>
+          <Button
+            render={<a href="/api/export/subscriptions" download />}
+            nativeButton={false}
+            variant="outline"
+            className="justify-start gap-2"
+          >
+            <Download className="size-4" />
+            Subscriptions (.csv)
+          </Button>
+        </div>
+
+        <div className="border-t pt-5">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Full backup — everything in one JSON file. Restoring{" "}
+            <span className="font-medium text-foreground">replaces all current data</span>.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              render={<a href="/api/export/backup" download />}
+              nativeButton={false}
+              variant="outline"
+              className="justify-start gap-2"
+            >
+              <Download className="size-4" />
+              Download backup (.json)
+            </Button>
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="size-4" />
+              Restore from backup…
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={onPickFile}
+            />
+          </div>
+        </div>
       </CardContent>
+
+      <Dialog
+        open={confirm !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) setConfirm(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Replace all data?</DialogTitle>
+            <DialogDescription>
+              This permanently deletes everything currently in Squirrel and loads
+              the backup ({confirm?.subs ?? 0} subscription
+              {confirm?.subs === 1 ? "" : "s"}, {confirm?.payments ?? 0} charge
+              {confirm?.payments === 1 ? "" : "s"}). It can&apos;t be undone —
+              download a backup first if you&apos;re unsure.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setConfirm(null)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={runRestore} disabled={pending}>
+              {pending ? (
+                <>
+                  <LoaderCircle className="size-4 animate-spin" />
+                  Restoring…
+                </>
+              ) : (
+                "Replace everything"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
