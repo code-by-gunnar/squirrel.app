@@ -51,6 +51,9 @@ next-env.d.ts
 # Local /impeccable critique snapshots (tooling output)
 .impeccable/
 
+# Claude Code worktrees (transient — created by EnterWorktree, carry their own node_modules)
+.claude/worktrees/
+
 # AI assistant instructions — kept local, not shared in the repo
 /CLAUDE.md
 /AGENTS.md
