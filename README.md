@@ -234,6 +234,25 @@ If your stack already has a top-level `volumes:` block, merge these two entries 
 
 Channel tokens and passwords are stored in Squirrel's database and included in JSON backups — keep backups private.
 
+## Importing subscriptions
+
+Coming from another tracker, or keeping your subs in a spreadsheet? Import them
+in one go from **Settings → Data → Import subscriptions (.csv)**.
+
+1. **Download template** to get a CSV with the exact columns (or just export from
+   your other tool — the importer is lenient about extra columns and header case).
+2. Fill it in. Only `Name` is required; everything else has sensible defaults
+   (`Price`→0, `Currency`→your base currency, `Billing cycle`→month, `Start date`→
+   today). Set `Category` / `Payment method` by name — any that don't exist yet are
+   created for you.
+3. Pick the file. A **preview** shows how many rows are ready, which will be
+   skipped (with the reason), and which categories will be created. Confirm to import.
+
+Imports **add** to your existing data (they don't replace it), and past charges are
+backfilled from each subscription's start date — with historical exchange rates —
+so Reports are accurate straight away. Squirrel's own subscriptions CSV export
+round-trips back in cleanly.
+
 ## Local development
 
 ```bash
