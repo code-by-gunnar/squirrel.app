@@ -65,9 +65,12 @@ immutable start date, so nothing to sync and nothing drifts.
   but can still use.
 - **Free-tier tracking** — flag a service you're on the free plan for. It's kept
   for awareness but left out of spend totals, renewals and reminders.
-- **Export & backup** — download your payment history and subscriptions as CSV
-  for spreadsheets or tax, or take a full JSON backup and restore it onto any
-  Squirrel instance (a one-click, atomic replace). Your data, portable.
+- **Import, export & backup** — bulk-**import** subscriptions from a CSV (coming
+  from another tracker or a spreadsheet) with a preview step, auto-created
+  categories/payment methods and backfilled history; **export** your payment
+  history and subscriptions as CSV for spreadsheets or tax; or take a full JSON
+  backup and restore it onto any Squirrel instance (a one-click, atomic replace).
+  Your data, portable.
 - **Install as an app (PWA)** — add Squirrel to your phone's home screen for a
   native-style experience with a bottom nav bar and slide-up forms. (Installing
   standalone needs HTTPS — see [Access over HTTPS](#access-over-https-for-pwa-install).)
