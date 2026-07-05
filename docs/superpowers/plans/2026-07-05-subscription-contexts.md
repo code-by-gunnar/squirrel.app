@@ -697,8 +697,18 @@ export async function updateContext(
 }
 
 export async function deleteContext(id: number): Promise<ActionState> {
-  // Subs fall back to context_id = NULL via the FK's onDelete: "set null".
-  db.delete(contexts).where(eq(contexts.id, id)).run();
+  // IMPORTANT: SQLite's `ALTER TABLE ADD COLUMN ... REFERENCES` (how context_id
+  // was added in migration 0004) does NOT enforce ON DELETE SET NULL — unlike
+  // categoryId, whose FK is inline in the original CREATE TABLE. So a bare
+  // `DELETE FROM contexts` would throw "FOREIGN KEY constraint failed" for any
+  // context still assigned. Null the assignments first, then delete — atomically.
+  db.transaction((tx) => {
+    tx.update(subscriptions)
+      .set({ contextId: null })
+      .where(eq(subscriptions.contextId, id))
+      .run();
+    tx.delete(contexts).where(eq(contexts.id, id)).run();
+  });
   revalidatePath("/settings");
   revalidatePath("/subscriptions");
   revalidatePath("/");
@@ -708,7 +718,11 @@ export async function deleteContext(id: number): Promise<ActionState> {
 }
 ```
 
+> `subscriptions` and `contexts` are both already imported in this file (subscriptions via the backup imports, contexts added in this task's Step 1).
+>
 > Stale-cookie safety: if the deleted context was the active one, the cookie now points at a dead id. No extra work needed — `resolveContextFilter` (Task 3) already degrades a non-live id to "all" on the next read.
+
+> **Add a test for this behavior.** Because this is the exact spot the automatic FK cascade fails, add a focused test (new file `src/app/(app)/settings/delete-context.test.ts` or extend an existing settings/db test) that: inserts a context, inserts a subscription with that `contextId`, calls the null-then-delete logic, and asserts the context row is gone AND the subscription's `contextId` is now `null` (not a throw). If the action's `revalidatePath` calls make it awkward to unit-test directly, extract the null-then-delete into a small tested helper in `src/lib/subscriptions.ts` (e.g. `deleteContextAndUnassign(id)`) and call it from the action.
 
 - [ ] **Step 2: Add the `ContextsCard` UI**
 
