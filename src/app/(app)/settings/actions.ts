@@ -253,6 +253,7 @@ export type ImportPreview = {
   skipped: RowError[];
   duplicateNames: string[];
   newCategories: string[];
+  newContexts: string[];
   newPaymentMethods: string[];
   headerError?: string;
 };
@@ -264,7 +265,7 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
   if (parsed.headerError) {
     return {
       ready: 0, skipped: [], duplicateNames: [],
-      newCategories: [], newPaymentMethods: [], headerError: parsed.headerError,
+      newCategories: [], newContexts: [], newPaymentMethods: [], headerError: parsed.headerError,
     };
   }
 
@@ -278,14 +279,20 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
   const existingPms = new Set(
     db.select({ name: paymentMethods.name }).from(paymentMethods).all().map((r) => lc(r.name)),
   );
+  const existingCtxs = new Set(
+    db.select({ name: contexts.name }).from(contexts).all().map((r) => lc(r.name)),
+  );
 
   const duplicateNames: string[] = [];
   const newCats = new Map<string, string>();
+  const newCtxs = new Map<string, string>();
   const newPms = new Map<string, string>();
   for (const row of parsed.ready) {
     if (existingSubs.has(lc(row.name))) duplicateNames.push(row.name);
     if (row.categoryName && !existingCats.has(lc(row.categoryName)))
       newCats.set(lc(row.categoryName), row.categoryName);
+    if (row.contextName && !existingCtxs.has(lc(row.contextName)))
+      newCtxs.set(lc(row.contextName), row.contextName);
     if (row.paymentMethodName && !existingPms.has(lc(row.paymentMethodName)))
       newPms.set(lc(row.paymentMethodName), row.paymentMethodName);
   }
@@ -295,6 +302,7 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
     skipped: parsed.skipped,
     duplicateNames,
     newCategories: [...newCats.values()],
+    newContexts: [...newCtxs.values()],
     newPaymentMethods: [...newPms.values()],
   };
 }
@@ -322,6 +330,9 @@ export async function importSubscriptionsCsv(
       const pmMap = new Map(
         tx.select().from(paymentMethods).all().map((p) => [p.name.toLowerCase(), p.id]),
       );
+      const ctxMap = new Map(
+        tx.select().from(contexts).all().map((c) => [c.name.toLowerCase(), c.id]),
+      );
       const ensureCat = (name: string): number => {
         const key = name.toLowerCase();
         const found = catMap.get(key);
@@ -338,6 +349,14 @@ export async function importSubscriptionsCsv(
         pmMap.set(key, id);
         return id;
       };
+      const ensureCtx = (name: string): number => {
+        const key = name.toLowerCase();
+        const found = ctxMap.get(key);
+        if (found != null) return found;
+        const id = Number(tx.insert(contexts).values({ name }).run().lastInsertRowid);
+        ctxMap.set(key, id);
+        return id;
+      };
 
       for (const row of parsed.ready) {
         const info = tx
@@ -352,6 +371,7 @@ export async function importSubscriptionsCsv(
             startDate: row.startDate,
             trialEndDate: row.trialEndDate,
             categoryId: row.categoryName ? ensureCat(row.categoryName) : null,
+            contextId: row.contextName ? ensureCtx(row.contextName) : null,
             paymentMethodId: row.paymentMethodName ? ensurePm(row.paymentMethodName) : null,
             notes: row.notes,
             free: row.free,

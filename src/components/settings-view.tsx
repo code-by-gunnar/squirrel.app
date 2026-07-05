@@ -342,6 +342,11 @@ function DataCard() {
                 New categories: {csvConfirm.preview.newCategories.join(", ")}
               </p>
             ) : null}
+            {csvConfirm && csvConfirm.preview.newContexts.length > 0 ? (
+              <p className="text-muted-foreground">
+                New contexts: {csvConfirm.preview.newContexts.join(", ")}
+              </p>
+            ) : null}
             {csvConfirm && csvConfirm.preview.newPaymentMethods.length > 0 ? (
               <p className="text-muted-foreground">
                 New payment methods: {csvConfirm.preview.newPaymentMethods.join(", ")}
