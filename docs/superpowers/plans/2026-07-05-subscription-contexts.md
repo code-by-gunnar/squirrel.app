@@ -44,10 +44,11 @@
 
 **Created:**
 - `drizzle/0004_*.sql` + `drizzle/meta/*` — generated migration (DDL only).
-- `src/lib/contexts.ts` — cookie constant, `ContextFilter` type, pure `resolveContextFilter()`, server `getActiveContextFilter()`, helper `subscriptionIdsForContext()`.
+- `src/lib/context-filter.ts` — **pure** (no `server-only`): `ContextFilter` type + `resolveContextFilter()`. Pure so it is unit-testable — a `server-only` module fails to import under Vitest (verified).
+- `src/lib/context-filter.test.ts` — unit tests for `resolveContextFilter`.
+- `src/lib/contexts.ts` — `server-only`: `CONTEXT_COOKIE`, `getActiveContextFilter()`, `subscriptionIdsForContext()`; re-exports `ContextFilter`.
 - `src/lib/context-actions.ts` — `"use server"` `setActiveContext(value)`.
 - `src/components/context-switcher.tsx` — client header dropdown.
-- `src/lib/contexts.test.ts` — unit tests for `resolveContextFilter`.
 
 ---
 
@@ -174,6 +175,7 @@ git commit -m "feat(db): add contexts table, context_id column, seed Personal/Wo
 ## Task 2: Data access — contexts list, enriched fields, filtered list
 
 **Files:**
+- Create: `src/lib/context-filter.ts`
 - Modify: `src/lib/subscriptions.ts`
 
 **Interfaces:**
@@ -181,9 +183,10 @@ git commit -m "feat(db): add contexts table, context_id column, seed Personal/Wo
 - Produces:
   - `getContexts(): Context[]`
   - `EnrichedSubscription` gains `contextName: string | null`, `contextColor: string | null`.
-  - `listSubscriptions(filter?: ContextFilter): EnrichedSubscription[]` where `ContextFilter = number | "all" | "unassigned"` (imported from `@/lib/contexts` in Task 3; for THIS task, define the param type inline as shown and Task 3 re-exports the canonical type — keep the union identical).
+  - a new pure module `src/lib/context-filter.ts` exporting `export type ContextFilter = number | "all" | "unassigned"`.
+  - `listSubscriptions(filter?: ContextFilter): EnrichedSubscription[]`.
 
-> Note: to avoid an import cycle (`contexts.ts` imports `getContexts` from `subscriptions.ts`), the `ContextFilter` type lives in `contexts.ts` and is imported here as a *type-only* import. `import type` does not create a runtime cycle.
+> Ordering note: the `ContextFilter` type lives in the new **pure** `context-filter.ts` (no `server-only`), NOT in the not-yet-created `contexts.ts`. `subscriptions.ts` imports the type from `context-filter.ts`; in Task 3, `contexts.ts` imports `ContextFilter`+`resolveContextFilter` from `context-filter.ts` and `getContexts` from `subscriptions.ts`, and re-exports the type so downstream (Task 8) can import it from `@/lib/contexts`. All import directions are one-way — no cycles.
 
 - [ ] **Step 1: Import contexts schema + filter helpers**
 
@@ -207,10 +210,17 @@ import {
 } from "@/db/schema";
 ```
 
-Add a type-only import at the top (after the existing imports):
+Create the pure filter-type module `src/lib/context-filter.ts` (NO `server-only` — keep it importable from tests):
 
 ```ts
-import type { ContextFilter } from "@/lib/contexts";
+/** Which subscriptions to include when listing: a context id, only untagged, or all. */
+export type ContextFilter = number | "all" | "unassigned";
+```
+
+Then import the type into `src/lib/subscriptions.ts` (add near the top with the other imports):
+
+```ts
+import type { ContextFilter } from "@/lib/context-filter";
 ```
 
 - [ ] **Step 2: Add `getContexts` and extend the enriched type**
@@ -297,7 +307,7 @@ Expected: PASS (76 tests). `listSubscriptions()` with no arg still returns every
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/subscriptions.ts
+git add src/lib/context-filter.ts src/lib/subscriptions.ts
 git commit -m "feat(subscriptions): getContexts + context filter on listSubscriptions"
 ```
 
@@ -306,24 +316,28 @@ git commit -m "feat(subscriptions): getContexts + context filter on listSubscrip
 ## Task 3: Context cookie helper + validation (pure + server)
 
 **Files:**
+- Modify: `src/lib/context-filter.ts` (created in Task 2 with just the type)
+- Create: `src/lib/context-filter.test.ts`
 - Create: `src/lib/contexts.ts`
-- Create: `src/lib/contexts.test.ts`
 
 **Interfaces:**
+- Consumes: `ContextFilter` type from `@/lib/context-filter`; `getContexts()` from `@/lib/subscriptions` (Task 2).
 - Produces:
-  - `CONTEXT_COOKIE = "squirrel_context"`
-  - `type ContextFilter = number | "all" | "unassigned"`
-  - `resolveContextFilter(raw: string | undefined, liveIds: Set<number>): ContextFilter` (pure)
+  - `resolveContextFilter(raw: string | undefined, liveIds: Set<number>): ContextFilter` (pure, in `context-filter.ts`)
+  - `CONTEXT_COOKIE = "squirrel_context"` (in `contexts.ts`)
+  - re-exported `ContextFilter` from `contexts.ts` (so downstream can import it from either module)
   - `getActiveContextFilter(): Promise<ContextFilter>` (server; reads cookie + live contexts)
   - `subscriptionIdsForContext(filter: ContextFilter): number[] | null` (null = "all", i.e. no filter)
 
+> Import direction stays one-way: `contexts.ts → { context-filter.ts, subscriptions.ts }`. Never import `contexts.ts` (server-only) from `subscriptions.ts` or `context-filter.ts`. `resolveContextFilter` MUST live in the pure `context-filter.ts` (not `contexts.ts`) because a `server-only` module cannot be imported under Vitest (verified: import fails with "Cannot find package 'server-only'").
+
 - [ ] **Step 1: Write the failing test for `resolveContextFilter`**
 
-Create `src/lib/contexts.test.ts`:
+Create `src/lib/context-filter.test.ts`:
 
 ```ts
 import { describe, it, expect } from "vitest";
-import { resolveContextFilter } from "./contexts";
+import { resolveContextFilter } from "./context-filter";
 
 describe("resolveContextFilter", () => {
   const live = new Set([1, 2]);
@@ -356,26 +370,14 @@ describe("resolveContextFilter", () => {
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `npx vitest run src/lib/contexts.test.ts`
-Expected: FAIL — cannot resolve `./contexts` / `resolveContextFilter` is not defined.
+Run: `npx vitest run src/lib/context-filter.test.ts`
+Expected: FAIL — `resolveContextFilter` is not exported from `./context-filter` (only the type exists there so far).
 
-- [ ] **Step 3: Implement `src/lib/contexts.ts`**
+- [ ] **Step 3a: Add the pure `resolveContextFilter` to `context-filter.ts`**
 
-> Before writing `getActiveContextFilter`, confirm the `cookies()` signature in this Next version (read `node_modules/next/dist/docs/` per Global Constraints). It is async here.
+Append to `src/lib/context-filter.ts` (below the `ContextFilter` type from Task 2 — keep this file free of `server-only`, `next/headers`, and `@/db` imports):
 
 ```ts
-import "server-only";
-import { cookies } from "next/headers";
-import { db } from "@/db";
-import { subscriptions } from "@/db/schema";
-import { isNull, eq } from "drizzle-orm";
-import { getContexts } from "@/lib/subscriptions";
-
-export const CONTEXT_COOKIE = "squirrel_context";
-
-/** Which subscriptions to include: a specific context, only untagged, or all. */
-export type ContextFilter = number | "all" | "unassigned";
-
 /**
  * Map a raw cookie value to a safe filter. Pure so it is unit-testable and can
  * never trust a stale/hand-edited cookie: an id that is not currently live
@@ -392,6 +394,26 @@ export function resolveContextFilter(
   }
   return "all";
 }
+```
+
+- [ ] **Step 3b: Create the server wrapper `src/lib/contexts.ts`**
+
+> Before writing `getActiveContextFilter`, confirm the `cookies()` signature in this Next version (read `node_modules/next/dist/docs/` per Global Constraints). It is async here.
+
+```ts
+import "server-only";
+import { cookies } from "next/headers";
+import { db } from "@/db";
+import { subscriptions } from "@/db/schema";
+import { isNull, eq } from "drizzle-orm";
+import { getContexts } from "@/lib/subscriptions";
+import { resolveContextFilter, type ContextFilter } from "@/lib/context-filter";
+
+export const CONTEXT_COOKIE = "squirrel_context";
+
+// Re-export so callers can import the filter type + pure resolver from here too.
+export type { ContextFilter };
+export { resolveContextFilter };
 
 /** Read the active context from the cookie, validated against live contexts. */
 export async function getActiveContextFilter(): Promise<ContextFilter> {
@@ -422,13 +444,18 @@ export function subscriptionIdsForContext(filter: ContextFilter): number[] | nul
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `npx vitest run src/lib/contexts.test.ts`
+Run: `npx vitest run src/lib/context-filter.test.ts`
 Expected: PASS (6 tests).
+
+Then confirm the whole thing type-checks (catches any cycle / bad import):
+
+Run: `npx tsc --noEmit`
+Expected: no errors.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/contexts.ts src/lib/contexts.test.ts
+git add src/lib/context-filter.ts src/lib/context-filter.test.ts src/lib/contexts.ts
 git commit -m "feat(contexts): cookie filter helper with stale-id fallback"
 ```
 
