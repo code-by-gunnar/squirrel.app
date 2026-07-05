@@ -174,7 +174,7 @@ export function parseSubscriptionsCsv(
     const priceRaw = get("price");
     if (priceRaw) {
       const n = parseNumber(priceRaw);
-      if (n == null) {
+      if (n == null || n < 0) {
         skipped.push({ line, name, reason: `Invalid price "${priceRaw}".` });
         continue;
       }

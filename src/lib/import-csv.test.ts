@@ -67,6 +67,12 @@ describe("parseSubscriptionsCsv", () => {
     expect(r.ready[0].price).toBe(1234.5);
   });
 
+  it("rejects a negative price", () => {
+    const r = parseSubscriptionsCsv(csv("Name,Price", "A,-5"), opts);
+    expect(r.ready).toEqual([]);
+    expect(r.skipped).toEqual([{ line: 2, name: "A", reason: 'Invalid price "-5".' }]);
+  });
+
   it("skips bad rows with a line + reason but keeps good ones", () => {
     const r = parseSubscriptionsCsv(
       csv(
