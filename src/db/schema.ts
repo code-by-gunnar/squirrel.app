@@ -18,6 +18,17 @@ export const categories = sqliteTable("categories", {
   color: text("color").notNull().default("#6366f1"),
 });
 
+/**
+ * A subscription's context / area of life (e.g. "Personal", "Work"). Orthogonal
+ * to `categories`: category is *what kind of thing*, context is *which area pays
+ * for it*. `color` is a hex string used for the badge dot.
+ */
+export const contexts = sqliteTable("contexts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#6366f1"),
+});
+
 /** How a subscription is paid (e.g. "Visa ••1234", "PayPal"). */
 export const paymentMethods = sqliteTable("payment_methods", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -51,6 +62,9 @@ export const subscriptions = sqliteTable(
     categoryId: integer("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
+    contextId: integer("context_id").references(() => contexts.id, {
+      onDelete: "set null",
+    }),
     paymentMethodId: integer("payment_method_id").references(
       () => paymentMethods.id,
       { onDelete: "set null" },
@@ -73,6 +87,7 @@ export const subscriptions = sqliteTable(
   (t) => [
     index("idx_subscriptions_active").on(t.active),
     index("idx_subscriptions_category").on(t.categoryId),
+    index("idx_subscriptions_context").on(t.contextId),
   ],
 );
 
@@ -130,6 +145,8 @@ export const payments = sqliteTable(
 export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 export type Category = typeof categories.$inferSelect;
+export type Context = typeof contexts.$inferSelect;
+export type NewContext = typeof contexts.$inferInsert;
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type FxRate = typeof fxRates.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
