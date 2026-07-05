@@ -37,8 +37,7 @@ immutable start date, so nothing to sync and nothing drifts.
     <td width="50%"><img src="docs/screenshot-calendar.png" alt="Calendar view of upcoming renewals" /><br/><sub><b>Calendar</b> — see the month at a glance</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshot-dark.png" alt="Dashboard in dark mode" /><br/><sub><b>Dark mode</b> — out of the box</sub></td>
-    <td width="50%" align="center"><img src="docs/screenshot-mobile.png" alt="Squirrel installed as an app on a phone" width="230" /><br/><sub><b>Installable PWA</b> — on your phone, as an app</sub></td>
+    <td colspan="2" align="center"><img src="docs/screenshot-mobile.png" alt="Squirrel installed as an app on a phone" width="230" /><br/><sub><b>Installable PWA</b> — on your phone, as an app</sub></td>
   </tr>
 </table>
 
