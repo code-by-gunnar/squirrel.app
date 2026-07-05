@@ -32,6 +32,9 @@ import {
   addPaymentMethod,
   deletePaymentMethod,
   importBackup,
+  previewSubscriptionsCsv,
+  importSubscriptionsCsv,
+  type ImportPreview,
   type ActionState,
 } from "@/app/(app)/settings/actions";
 import {
@@ -105,6 +108,43 @@ function DataCard() {
     payments: number;
   } | null>(null);
 
+  const csvFileRef = useRef<HTMLInputElement>(null);
+  const [csvConfirm, setCsvConfirm] = useState<{ text: string; preview: ImportPreview } | null>(null);
+  const [importing, startImport] = useTransition();
+
+  async function onPickCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    const text = await file.text();
+    const preview = await previewSubscriptionsCsv(text);
+    if (preview.headerError) {
+      toast.error(preview.headerError);
+      return;
+    }
+    if (preview.ready === 0 && preview.skipped.length === 0) {
+      toast.error("No rows found in that file.");
+      return;
+    }
+    setCsvConfirm({ text, preview });
+  }
+
+  function runImport() {
+    if (!csvConfirm) return;
+    const text = csvConfirm.text;
+    startImport(async () => {
+      const res = await importSubscriptionsCsv(text);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      const skipped = res.skipped ? ` ${res.skipped} row(s) skipped.` : "";
+      toast.success(`Imported ${res.inserted ?? 0} subscription(s).${skipped}`);
+      setCsvConfirm(null);
+      router.refresh();
+    });
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file later
@@ -166,6 +206,40 @@ function DataCard() {
             <Download className="size-4" />
             Subscriptions (.csv)
           </Button>
+        </div>
+
+        <div className="border-t pt-5">
+          <p className="mb-3 text-sm text-muted-foreground">
+            Import subscriptions from a CSV — coming from another tracker or a
+            spreadsheet. Missing categories and payment methods are created
+            automatically, and past charges are backfilled.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => csvFileRef.current?.click()}
+            >
+              <Upload className="size-4" />
+              Import subscriptions (.csv)
+            </Button>
+            <Button
+              render={<a href="/api/export/subscriptions-template" download />}
+              nativeButton={false}
+              variant="outline"
+              className="justify-start gap-2"
+            >
+              <Download className="size-4" />
+              Download template
+            </Button>
+            <input
+              ref={csvFileRef}
+              type="file"
+              accept="text/csv,.csv"
+              className="hidden"
+              onChange={onPickCsv}
+            />
+          </div>
         </div>
 
         <div className="border-t pt-5">
@@ -235,6 +309,75 @@ function DataCard() {
                 </>
               ) : (
                 "Replace everything"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={csvConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open && !importing) setCsvConfirm(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import subscriptions?</DialogTitle>
+            <DialogDescription>
+              {csvConfirm?.preview.ready ?? 0} subscription
+              {csvConfirm?.preview.ready === 1 ? "" : "s"} ready to import. This adds
+              to your existing data.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm">
+            {csvConfirm && csvConfirm.preview.newCategories.length > 0 ? (
+              <p className="text-muted-foreground">
+                New categories: {csvConfirm.preview.newCategories.join(", ")}
+              </p>
+            ) : null}
+            {csvConfirm && csvConfirm.preview.newPaymentMethods.length > 0 ? (
+              <p className="text-muted-foreground">
+                New payment methods: {csvConfirm.preview.newPaymentMethods.join(", ")}
+              </p>
+            ) : null}
+            {csvConfirm && csvConfirm.preview.duplicateNames.length > 0 ? (
+              <p className="text-amber-600">
+                {csvConfirm.preview.duplicateNames.length} name(s) already exist and
+                will be added again.
+              </p>
+            ) : null}
+            {csvConfirm && csvConfirm.preview.skipped.length > 0 ? (
+              <details className="text-muted-foreground">
+                <summary className="cursor-pointer">
+                  {csvConfirm.preview.skipped.length} row(s) will be skipped
+                </summary>
+                <ul className="mt-2 space-y-1">
+                  {csvConfirm.preview.skipped.slice(0, 10).map((s) => (
+                    <li key={s.line}>
+                      Line {s.line}
+                      {s.name ? ` (${s.name})` : ""}: {s.reason}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCsvConfirm(null)} disabled={importing}>
+              Cancel
+            </Button>
+            <Button
+              onClick={runImport}
+              disabled={importing || (csvConfirm?.preview.ready ?? 0) === 0}
+            >
+              {importing ? (
+                <>
+                  <LoaderCircle className="size-4 animate-spin" />
+                  Importing…
+                </>
+              ) : (
+                `Import ${csvConfirm?.preview.ready ?? 0}`
               )}
             </Button>
           </DialogFooter>
