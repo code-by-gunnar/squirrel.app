@@ -86,6 +86,10 @@ export function parseCsv(text: string): string[][] {
     pushField();
     pushRow();
   }
-  // Drop a trailing fully-empty row (e.g. from a final newline).
-  return rows.filter((r) => !(r.length === 1 && r[0] === ""));
+  // Drop only the trailing empty row left by a final newline — never interior blanks.
+  if (rows.length > 0) {
+    const last = rows[rows.length - 1];
+    if (last.length === 1 && last[0] === "") rows.pop();
+  }
+  return rows;
 }

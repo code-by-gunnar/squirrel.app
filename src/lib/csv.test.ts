@@ -48,6 +48,9 @@ describe("parseCsv", () => {
   it("ignores a trailing newline (no phantom empty row)", () => {
     expect(parseCsv("a,b\n1,2\n")).toEqual([["a", "b"], ["1", "2"]]);
   });
+  it("preserves an interior blank line (does not drop it as a phantom row)", () => {
+    expect(parseCsv("a,b\n\n1,2")).toEqual([["a", "b"], [""], ["1", "2"]]);
+  });
   it("keeps empty cells", () => {
     expect(parseCsv("a,,c")).toEqual([["a", "", "c"]]);
   });
