@@ -16,6 +16,8 @@ import { APP_VERSION } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { logout } from "@/app/login/actions";
+import type { Context } from "@/db/schema";
+import { ContextSwitcher } from "@/components/context-switcher";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -40,7 +42,15 @@ function Brand() {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  contexts,
+  activeContext,
+}: {
+  children: React.ReactNode;
+  contexts: Context[];
+  activeContext: string;
+}) {
   const pathname = usePathname();
 
   return (
@@ -94,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Brand />
           </div>
           <div className="ml-auto flex items-center gap-1">
+            <ContextSwitcher contexts={contexts} current={activeContext} />
             <ThemeToggle />
             <form action={logout} className="md:hidden">
               <Button
