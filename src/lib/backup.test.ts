@@ -87,4 +87,34 @@ describe("parseBackup", () => {
     const res = parseBackup(JSON.stringify(withExtra));
     expect(res.ok).toBe(true);
   });
+
+  it("accepts a backup containing contexts", () => {
+    const backup = {
+      app: "squirrel",
+      schema: 1,
+      data: {
+        settings: [],
+        categories: [],
+        contexts: [{ id: 1, name: "Work", color: "#0ea5e9" }],
+        paymentMethods: [],
+        subscriptions: [
+          {
+            id: 1, name: "Figma", logoUrl: null, url: null, price: 12,
+            currencyCode: "USD", billingCycle: "month", billingInterval: 1,
+            startDate: "2024-01-01", trialEndDate: null, categoryId: null,
+            contextId: 1, paymentMethodId: null, notes: null, active: true,
+            notify: true, free: false, cancelled: false, endsOn: null,
+            createdAt: "2024-01-01T00:00:00.000Z",
+          },
+        ],
+        payments: [],
+      },
+    };
+    const res = parseBackup(JSON.stringify(backup));
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.data.contexts[0].name).toBe("Work");
+      expect(res.data.data.subscriptions[0].contextId).toBe(1);
+    }
+  });
 });

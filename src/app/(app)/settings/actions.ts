@@ -218,10 +218,12 @@ export async function importBackup(
       tx.delete(payments).run();
       tx.delete(subscriptions).run();
       tx.delete(categories).run();
+      tx.delete(contexts).run();
       tx.delete(paymentMethods).run();
       tx.delete(settings).run();
 
       if (d.categories.length) tx.insert(categories).values(d.categories).run();
+      if (d.contexts.length) tx.insert(contexts).values(d.contexts).run();
       if (d.paymentMethods.length)
         tx.insert(paymentMethods).values(d.paymentMethods).run();
       if (d.settings.length) tx.insert(settings).values(d.settings).run();
