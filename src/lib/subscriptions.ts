@@ -1,12 +1,14 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, isNull, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   subscriptions,
   categories,
+  contexts,
   paymentMethods,
   fxRates,
   type Subscription,
+  type Context,
 } from "@/db/schema";
 import {
   computeNextRenewal,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/billing";
 import { convertToBase, ratesToMap } from "@/lib/currency";
 import { getBaseCurrency } from "@/lib/settings";
+import type { ContextFilter } from "@/lib/context-filter";
 
 /**
  * A subscription's lifecycle state, derived on read:
@@ -32,6 +35,8 @@ export type SubscriptionStatus = "active" | "cancelled" | "expired" | "inactive"
 export type EnrichedSubscription = Subscription & {
   categoryName: string | null;
   categoryColor: string | null;
+  contextName: string | null;
+  contextColor: string | null;
   paymentMethodName: string | null;
   nextRenewal: string; // ISO date
   daysUntil: number;
@@ -65,6 +70,10 @@ export function getCategories() {
   return db.select().from(categories).orderBy(categories.name).all();
 }
 
+export function getContexts(): Context[] {
+  return db.select().from(contexts).orderBy(contexts.name).all();
+}
+
 export function getPaymentMethods() {
   return db.select().from(paymentMethods).orderBy(paymentMethods.name).all();
 }
@@ -77,50 +86,67 @@ export function getFxRateMap() {
  * Load every subscription joined with its category & payment method, and attach
  * the computed fields the UI needs (next renewal, days until, base-currency cost).
  */
-export function listSubscriptions(): EnrichedSubscription[] {
+export function listSubscriptions(
+  filter: ContextFilter = "all",
+): EnrichedSubscription[] {
   const base = getBaseCurrency();
   const rates = getFxRateMap();
   const from = new Date();
+
+  const where: SQL | undefined =
+    filter === "all"
+      ? undefined
+      : filter === "unassigned"
+        ? isNull(subscriptions.contextId)
+        : eq(subscriptions.contextId, filter);
 
   const rows = db
     .select({
       sub: subscriptions,
       categoryName: categories.name,
       categoryColor: categories.color,
+      contextName: contexts.name,
+      contextColor: contexts.color,
       paymentMethodName: paymentMethods.name,
     })
     .from(subscriptions)
     .leftJoin(categories, eq(subscriptions.categoryId, categories.id))
+    .leftJoin(contexts, eq(subscriptions.contextId, contexts.id))
     .leftJoin(paymentMethods, eq(subscriptions.paymentMethodId, paymentMethods.id))
+    .where(where)
     .orderBy(desc(subscriptions.active), subscriptions.name)
     .all();
 
-  return rows.map(({ sub, categoryName, categoryColor, paymentMethodName }) => {
-    const cycle = sub.billingCycle as BillingCycle;
-    const nextRenewal = computeNextRenewal(sub.startDate, cycle, sub.billingInterval, from);
-    const monthlyNative = monthlyEquivalent(sub.price, cycle, sub.billingInterval);
-    const yearlyNative = yearlyEquivalent(sub.price, cycle, sub.billingInterval);
-    const { status, isActive, daysUntilEnd } = deriveStatus(
-      sub.active,
-      sub.cancelled,
-      sub.endsOn,
-      from,
-    );
-    return {
-      ...sub,
-      categoryName,
-      categoryColor,
-      paymentMethodName,
-      nextRenewal: toISODate(nextRenewal),
-      daysUntil: daysUntilRenewal(sub.startDate, cycle, sub.billingInterval, from),
-      priceBase: convertToBase(sub.price, sub.currencyCode, base, rates),
-      monthlyBase: convertToBase(monthlyNative, sub.currencyCode, base, rates),
-      yearlyBase: convertToBase(yearlyNative, sub.currencyCode, base, rates),
-      status,
-      isActive,
-      daysUntilEnd,
-    };
-  });
+  return rows.map(
+    ({ sub, categoryName, categoryColor, contextName, contextColor, paymentMethodName }) => {
+      const cycle = sub.billingCycle as BillingCycle;
+      const nextRenewal = computeNextRenewal(sub.startDate, cycle, sub.billingInterval, from);
+      const monthlyNative = monthlyEquivalent(sub.price, cycle, sub.billingInterval);
+      const yearlyNative = yearlyEquivalent(sub.price, cycle, sub.billingInterval);
+      const { status, isActive, daysUntilEnd } = deriveStatus(
+        sub.active,
+        sub.cancelled,
+        sub.endsOn,
+        from,
+      );
+      return {
+        ...sub,
+        categoryName,
+        categoryColor,
+        contextName,
+        contextColor,
+        paymentMethodName,
+        nextRenewal: toISODate(nextRenewal),
+        daysUntil: daysUntilRenewal(sub.startDate, cycle, sub.billingInterval, from),
+        priceBase: convertToBase(sub.price, sub.currencyCode, base, rates),
+        monthlyBase: convertToBase(monthlyNative, sub.currencyCode, base, rates),
+        yearlyBase: convertToBase(yearlyNative, sub.currencyCode, base, rates),
+        status,
+        isActive,
+        daysUntilEnd,
+      };
+    },
+  );
 }
 
 export function getSubscription(id: number) {
