@@ -17,3 +17,79 @@ export function toCsv(headers: string[], rows: CsvCell[][]): string {
     .map((row) => row.map(escapeField).join(","))
     .join("\r\n");
 }
+
+/**
+ * Parse an RFC-4180 CSV document into rows of string cells. Handles quoted
+ * fields (with embedded commas, newlines, and "" escaped quotes), CRLF or LF
+ * line endings, and strips a leading UTF-8 BOM. A trailing newline does not
+ * produce a phantom empty row. The inverse of `toCsv`.
+ */
+export function parseCsv(text: string): string[][] {
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  let i = 0;
+
+  const pushField = () => {
+    row.push(field);
+    field = "";
+  };
+  const pushRow = () => {
+    rows.push(row);
+    row = [];
+  };
+
+  while (i < src.length) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i += 2;
+          continue;
+        }
+        inQuotes = false;
+        i++;
+        continue;
+      }
+      field += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inQuotes = true;
+      i++;
+      continue;
+    }
+    if (c === ",") {
+      pushField();
+      i++;
+      continue;
+    }
+    if (c === "\r") {
+      i++;
+      continue; // CR is skipped; the following LF ends the row
+    }
+    if (c === "\n") {
+      pushField();
+      pushRow();
+      i++;
+      continue;
+    }
+    field += c;
+    i++;
+  }
+  // Flush trailing content that wasn't terminated by a newline.
+  if (field.length > 0 || row.length > 0) {
+    pushField();
+    pushRow();
+  }
+  // Drop only the trailing empty row left by a final newline — never interior blanks.
+  if (rows.length > 0) {
+    const last = rows[rows.length - 1];
+    if (last.length === 1 && last[0] === "") rows.pop();
+  }
+  return rows;
+}

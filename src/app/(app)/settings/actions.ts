@@ -10,7 +10,7 @@ import {
   payments,
   settings,
 } from "@/db/schema";
-import { saveSettings, getSettings } from "@/lib/settings";
+import { saveSettings, getSettings, getBaseCurrency } from "@/lib/settings";
 import { settingsFormSchema } from "@/lib/notify/payloads";
 import {
   channelById,
@@ -21,6 +21,8 @@ import type { ChannelId } from "@/lib/notify/types";
 import { runDailyReminders } from "@/lib/reminders";
 import { refreshFxRates } from "@/lib/fx";
 import { parseBackup } from "@/lib/backup";
+import { parseSubscriptionsCsv, type RowError } from "@/lib/import-csv";
+import { backfillPayments } from "@/lib/payments";
 
 export type ActionState = { ok?: boolean; error?: string };
 
@@ -199,4 +201,140 @@ export async function importBackup(
   revalidatePath("/reports");
   revalidatePath("/settings");
   return { ok: true, replaced: d.subscriptions.length };
+}
+
+export type ImportPreview = {
+  ready: number;
+  skipped: RowError[];
+  duplicateNames: string[];
+  newCategories: string[];
+  newPaymentMethods: string[];
+  headerError?: string;
+};
+
+/** Parse + validate an uploaded CSV and cross-reference existing names. No writes. */
+export async function previewSubscriptionsCsv(text: string): Promise<ImportPreview> {
+  const base = getBaseCurrency();
+  const parsed = parseSubscriptionsCsv(text, { baseCurrency: base });
+  if (parsed.headerError) {
+    return {
+      ready: 0, skipped: [], duplicateNames: [],
+      newCategories: [], newPaymentMethods: [], headerError: parsed.headerError,
+    };
+  }
+
+  const lc = (s: string) => s.toLowerCase();
+  const existingSubs = new Set(
+    db.select({ name: subscriptions.name }).from(subscriptions).all().map((r) => lc(r.name)),
+  );
+  const existingCats = new Set(
+    db.select({ name: categories.name }).from(categories).all().map((r) => lc(r.name)),
+  );
+  const existingPms = new Set(
+    db.select({ name: paymentMethods.name }).from(paymentMethods).all().map((r) => lc(r.name)),
+  );
+
+  const duplicateNames: string[] = [];
+  const newCats = new Map<string, string>();
+  const newPms = new Map<string, string>();
+  for (const row of parsed.ready) {
+    if (existingSubs.has(lc(row.name))) duplicateNames.push(row.name);
+    if (row.categoryName && !existingCats.has(lc(row.categoryName)))
+      newCats.set(lc(row.categoryName), row.categoryName);
+    if (row.paymentMethodName && !existingPms.has(lc(row.paymentMethodName)))
+      newPms.set(lc(row.paymentMethodName), row.paymentMethodName);
+  }
+
+  return {
+    ready: parsed.ready.length,
+    skipped: parsed.skipped,
+    duplicateNames,
+    newCategories: [...newCats.values()],
+    newPaymentMethods: [...newPms.values()],
+  };
+}
+
+/**
+ * Import valid rows from a CSV as new subscriptions. Appends (never replaces).
+ * Missing categories/payment methods are created inside the transaction; payment
+ * history is backfilled per sub afterwards (best-effort; a backfill failure is
+ * logged and never rolls back the import). Re-parses the text server-side.
+ */
+export async function importSubscriptionsCsv(
+  text: string,
+): Promise<ActionState & { inserted?: number; skipped?: number }> {
+  const base = getBaseCurrency();
+  const parsed = parseSubscriptionsCsv(text, { baseCurrency: base });
+  if (parsed.headerError) return { error: parsed.headerError };
+  if (parsed.ready.length === 0) return { error: "No valid rows to import." };
+
+  const newIds: number[] = [];
+  try {
+    db.transaction((tx) => {
+      const catMap = new Map(
+        tx.select().from(categories).all().map((c) => [c.name.toLowerCase(), c.id]),
+      );
+      const pmMap = new Map(
+        tx.select().from(paymentMethods).all().map((p) => [p.name.toLowerCase(), p.id]),
+      );
+      const ensureCat = (name: string): number => {
+        const key = name.toLowerCase();
+        const found = catMap.get(key);
+        if (found != null) return found;
+        const id = Number(tx.insert(categories).values({ name }).run().lastInsertRowid);
+        catMap.set(key, id);
+        return id;
+      };
+      const ensurePm = (name: string): number => {
+        const key = name.toLowerCase();
+        const found = pmMap.get(key);
+        if (found != null) return found;
+        const id = Number(tx.insert(paymentMethods).values({ name }).run().lastInsertRowid);
+        pmMap.set(key, id);
+        return id;
+      };
+
+      for (const row of parsed.ready) {
+        const info = tx
+          .insert(subscriptions)
+          .values({
+            name: row.name,
+            url: row.url,
+            price: row.price,
+            currencyCode: row.currencyCode,
+            billingCycle: row.billingCycle,
+            billingInterval: row.billingInterval,
+            startDate: row.startDate,
+            trialEndDate: row.trialEndDate,
+            categoryId: row.categoryName ? ensureCat(row.categoryName) : null,
+            paymentMethodId: row.paymentMethodName ? ensurePm(row.paymentMethodName) : null,
+            notes: row.notes,
+            free: row.free,
+            active: true,
+            notify: true,
+            cancelled: false,
+          })
+          .run();
+        newIds.push(Number(info.lastInsertRowid));
+      }
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Import failed" };
+  }
+
+  // Backfill outside the transaction (makes network FX calls). Best-effort.
+  for (const id of newIds) {
+    try {
+      await backfillPayments(id);
+    } catch (e) {
+      console.error("[squirrel] import backfill failed", e);
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/subscriptions");
+  revalidatePath("/calendar");
+  revalidatePath("/reports");
+  revalidatePath("/settings");
+  return { ok: true, inserted: newIds.length, skipped: parsed.skipped.length };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toCsv } from "./csv";
+import { toCsv, parseCsv } from "./csv";
 
 describe("toCsv", () => {
   it("joins headers and rows with CRLF", () => {
@@ -23,5 +23,35 @@ describe("toCsv", () => {
   it("renders null/undefined as empty and keeps numbers", () => {
     const csv = toCsv(["X", "Y", "Z"], [[null, undefined, 9]]);
     expect(csv).toBe("X,Y,Z\r\n,,9");
+  });
+});
+
+describe("parseCsv", () => {
+  it("round-trips a toCsv document", () => {
+    const csv = toCsv(["A", "B"], [["1", "two"], ["3", "four"]]);
+    expect(parseCsv(csv)).toEqual([["A", "B"], ["1", "two"], ["3", "four"]]);
+  });
+  it("handles quoted fields with commas, quotes and newlines", () => {
+    const csv = 'Name,Notes\r\n"A, Inc.","He said ""hi""\nsecond line"';
+    expect(parseCsv(csv)).toEqual([
+      ["Name", "Notes"],
+      ["A, Inc.", 'He said "hi"\nsecond line'],
+    ]);
+  });
+  it("accepts LF or CRLF line endings", () => {
+    expect(parseCsv("a,b\n1,2")).toEqual([["a", "b"], ["1", "2"]]);
+    expect(parseCsv("a,b\r\n1,2")).toEqual([["a", "b"], ["1", "2"]]);
+  });
+  it("strips a leading UTF-8 BOM", () => {
+    expect(parseCsv("﻿a,b\n1,2")).toEqual([["a", "b"], ["1", "2"]]);
+  });
+  it("ignores a trailing newline (no phantom empty row)", () => {
+    expect(parseCsv("a,b\n1,2\n")).toEqual([["a", "b"], ["1", "2"]]);
+  });
+  it("preserves an interior blank line (does not drop it as a phantom row)", () => {
+    expect(parseCsv("a,b\n\n1,2")).toEqual([["a", "b"], [""], ["1", "2"]]);
+  });
+  it("keeps empty cells", () => {
+    expect(parseCsv("a,,c")).toEqual([["a", "", "c"]]);
   });
 });
