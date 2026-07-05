@@ -32,6 +32,11 @@ function monthLabel(key: string): string {
  * recorded charges (actual cashflow — a yearly sub spikes in its renewal month),
  * followed by `projectedMonths` future months estimated from each active sub's
  * schedule. The current month reflects charges recorded so far.
+ *
+ * When `filter` scopes to a context, spend is attributed by the subscription's
+ * CURRENT context (the `payments` ledger has no context of its own). Reassigning
+ * a sub's context therefore retroactively moves its past cashflow between
+ * contexts — intended, since a context is a live lens over your subscriptions.
  */
 export function getMonthlySpend(
   filter: ContextFilter = "all",
