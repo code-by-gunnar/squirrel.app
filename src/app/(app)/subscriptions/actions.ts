@@ -68,6 +68,7 @@ const SubscriptionSchema = z.object({
     .optional()
     .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)),
   categoryId: optionalId,
+  contextId: optionalId,
   paymentMethodId: optionalId,
   notes: optionalString,
   active: z.boolean(),
@@ -119,6 +120,7 @@ export async function saveSubscription(
     startDate: formData.get("startDate"),
     trialEndDate: formData.get("trialEndDate"),
     categoryId: formData.get("categoryId"),
+    contextId: formData.get("contextId"),
     paymentMethodId: formData.get("paymentMethodId"),
     notes: formData.get("notes"),
     active: parseCheckbox(formData, "active"),

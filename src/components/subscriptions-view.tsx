@@ -15,7 +15,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Category, PaymentMethod, Subscription } from "@/db/schema";
+import type { Category, Context, PaymentMethod, Subscription } from "@/db/schema";
 import type { EnrichedSubscription } from "@/lib/subscriptions";
 import { describeCycle, type BillingCycle } from "@/lib/billing";
 import { formatCurrency } from "@/lib/currency";
@@ -56,8 +56,10 @@ import {
 type Props = {
   subscriptions: EnrichedSubscription[];
   categories: Category[];
+  contexts: Context[];
   paymentMethods: PaymentMethod[];
   baseCurrency: string;
+  defaultContextId?: string;
 };
 
 type SortKey = "renewal" | "name" | "price";
@@ -111,8 +113,10 @@ function statusLine(
 export function SubscriptionsView({
   subscriptions,
   categories,
+  contexts,
   paymentMethods,
   baseCurrency,
+  defaultContextId,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editing, setEditing] = useState<Subscription | null>(null);
@@ -403,7 +407,7 @@ export function SubscriptionsView({
                   ) : null}
                 </div>
 
-                {sub.categoryName || sub.paymentMethodName ? (
+                {sub.categoryName || sub.contextName || sub.paymentMethodName ? (
                   <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
                     {sub.categoryName ? (
                       <span className="inline-flex items-center gap-1.5">
@@ -412,6 +416,15 @@ export function SubscriptionsView({
                           style={{ backgroundColor: sub.categoryColor ?? "#64748b" }}
                         />
                         {sub.categoryName}
+                      </span>
+                    ) : null}
+                    {sub.contextName ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="size-2 rounded-full"
+                          style={{ backgroundColor: sub.contextColor ?? "#64748b" }}
+                        />
+                        {sub.contextName}
                       </span>
                     ) : null}
                     {sub.paymentMethodName ? (
@@ -432,9 +445,11 @@ export function SubscriptionsView({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         categories={categories}
+        contexts={contexts}
         paymentMethods={paymentMethods}
         baseCurrency={baseCurrency}
         subscription={editing}
+        defaultContextId={defaultContextId}
       />
 
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

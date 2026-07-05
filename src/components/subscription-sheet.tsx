@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { LoaderCircle, ImageIcon, X, Search, Check } from "lucide-react";
 import { toast } from "sonner";
-import type { Subscription, Category, PaymentMethod } from "@/db/schema";
+import type { Subscription, Category, Context, PaymentMethod } from "@/db/schema";
 import {
   saveSubscription,
   searchLogos,
@@ -52,18 +52,23 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categories: Category[];
+  contexts: Context[];
   paymentMethods: PaymentMethod[];
   baseCurrency: string;
   subscription?: Subscription | null;
+  /** Pre-selected context id ("none" if none) when adding while a context is active. */
+  defaultContextId?: string;
 };
 
 export function SubscriptionSheet({
   open,
   onOpenChange,
   categories,
+  contexts,
   paymentMethods,
   baseCurrency,
   subscription,
+  defaultContextId = "none",
 }: Props) {
   const [state, formAction, pending] = useActionState(saveSubscription, initialState);
   const isEdit = !!subscription;
@@ -75,6 +80,13 @@ export function SubscriptionSheet({
   const [cycle, setCycle] = useState(subscription?.billingCycle ?? "month");
   const [categoryId, setCategoryId] = useState(
     subscription?.categoryId ? String(subscription.categoryId) : "none",
+  );
+  const [contextId, setContextId] = useState(
+    subscription?.contextId
+      ? String(subscription.contextId)
+      : !subscription
+        ? defaultContextId
+        : "none",
   );
   const [paymentMethodId, setPaymentMethodId] = useState(
     subscription?.paymentMethodId ? String(subscription.paymentMethodId) : "none",
@@ -108,6 +120,13 @@ export function SubscriptionSheet({
     setCurrency(subscription?.currencyCode ?? baseCurrency);
     setCycle(subscription?.billingCycle ?? "month");
     setCategoryId(subscription?.categoryId ? String(subscription.categoryId) : "none");
+    setContextId(
+      subscription?.contextId
+        ? String(subscription.contextId)
+        : !subscription
+          ? defaultContextId
+          : "none",
+    );
     setPaymentMethodId(
       subscription?.paymentMethodId ? String(subscription.paymentMethodId) : "none",
     );
@@ -122,7 +141,7 @@ export function SubscriptionSheet({
     setPickerOpen(false);
     setCandidates([]);
     setLogoQuery("");
-  }, [open, subscription, baseCurrency]);
+  }, [open, subscription, baseCurrency, defaultContextId]);
 
   // Turning "Cancelled" on pre-fills the end date with the end of the current
   // paid period (the next renewal), which is the usual "access until" date.
@@ -180,6 +199,10 @@ export function SubscriptionSheet({
     none: "None",
     ...Object.fromEntries(categories.map((c) => [String(c.id), c.name])),
   };
+  const contextItems: Record<string, string> = {
+    none: "None",
+    ...Object.fromEntries(contexts.map((c) => [String(c.id), c.name])),
+  };
   const paymentItems: Record<string, string> = {
     none: "None",
     ...Object.fromEntries(paymentMethods.map((p) => [String(p.id), p.name])),
@@ -218,6 +241,7 @@ export function SubscriptionSheet({
           <input type="hidden" name="currencyCode" value={currency} />
           <input type="hidden" name="billingCycle" value={cycle} />
           <input type="hidden" name="categoryId" value={categoryId} />
+          <input type="hidden" name="contextId" value={contextId} />
           <input type="hidden" name="paymentMethodId" value={paymentMethodId} />
 
           <div
@@ -480,6 +504,30 @@ export function SubscriptionSheet({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Context</Label>
+              <Select
+                value={contextId}
+                onValueChange={(v) => setContextId(v ?? "none")}
+                items={contextItems}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {contexts.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
