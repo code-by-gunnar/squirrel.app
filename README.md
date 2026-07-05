@@ -52,6 +52,11 @@ immutable start date, so nothing to sync and nothing drifts.
   the time), then charts your actual monthly spend over time plus total-spent-to-date
   and this-year totals. This is real cashflow, distinct from the dashboard's
   normalized monthly average.
+- **Personal vs Work contexts** — tag each subscription by area (Personal, Work,
+  or your own, managed in Settings), then switch context from the header to
+  re-scope every total: the dashboard, calendar and reports all show just that
+  context. "All" combines them, and untagged subs sit under "Unassigned". See
+  [Contexts](#contexts).
 - **Search, filter & sort** — filter by category or status (active / cancelled /
   free / inactive); sort by next renewal, name, or price (high–low).
 - **Multi-currency** — track subs in any currency; totals convert to your base
