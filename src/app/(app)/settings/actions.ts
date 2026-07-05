@@ -5,12 +5,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   categories,
+  contexts,
   paymentMethods,
   subscriptions,
   payments,
   settings,
 } from "@/db/schema";
 import { saveSettings, getSettings, getBaseCurrency } from "@/lib/settings";
+import { deleteContextAndUnassign } from "@/lib/subscriptions";
 import { settingsFormSchema } from "@/lib/notify/payloads";
 import {
   channelById,
@@ -130,6 +132,49 @@ export async function deleteCategory(id: number): Promise<ActionState> {
   revalidatePath("/settings");
   revalidatePath("/subscriptions");
   revalidatePath("/");
+  return { ok: true };
+}
+
+// --- Contexts ---
+
+export async function addContext(name: string, color: string): Promise<ActionState> {
+  const n = name.trim();
+  if (!n) return { error: "Name required" };
+  db.insert(contexts).values({ name: n, color: color || "#6366f1" }).run();
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  return { ok: true };
+}
+
+export async function updateContext(
+  id: number,
+  name: string,
+  color: string,
+): Promise<ActionState> {
+  const n = name.trim();
+  if (!n) return { error: "Name required" };
+  db.update(contexts).set({ name: n, color }).where(eq(contexts.id, id)).run();
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteContext(id: number): Promise<ActionState> {
+  // IMPORTANT: SQLite's `ALTER TABLE ADD COLUMN ... REFERENCES` (how context_id
+  // was added in migration 0004) does NOT enforce ON DELETE SET NULL — unlike
+  // categoryId, whose FK is inline in the original CREATE TABLE. So a bare
+  // `DELETE FROM contexts` would throw "FOREIGN KEY constraint failed" for any
+  // context still assigned. Null the assignments first, then delete —
+  // atomically. Done via `deleteContextAndUnassign` (src/lib/subscriptions.ts)
+  // rather than inline here so it can be unit-tested without hitting this
+  // action's `revalidatePath` calls, which throw outside a request scope.
+  deleteContextAndUnassign(id);
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/reports");
   return { ok: true };
 }
 

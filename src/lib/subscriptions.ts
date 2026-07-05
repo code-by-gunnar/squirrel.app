@@ -152,3 +152,29 @@ export function listSubscriptions(
 export function getSubscription(id: number) {
   return db.select().from(subscriptions).where(eq(subscriptions.id, id)).get();
 }
+
+/**
+ * Null every subscription's `contextId` that points at `id`, then delete the
+ * context — atomically in one transaction.
+ *
+ * IMPORTANT: `context_id` was added via `ALTER TABLE ... REFERENCES` (migration
+ * 0004), and SQLite does NOT enforce `ON DELETE SET NULL` for FKs added that
+ * way (unlike `categoryId`, whose FK is inline in the original CREATE TABLE).
+ * A bare `DELETE FROM contexts` would throw "FOREIGN KEY constraint failed"
+ * for any context still assigned to a subscription — so callers must go
+ * through this helper instead of deleting the row directly.
+ *
+ * Extracted out of the `deleteContext` server action so it can be unit-tested
+ * directly: the action's `revalidatePath` calls throw outside a Next.js
+ * request scope, which makes the action itself awkward to exercise in a
+ * plain Vitest test.
+ */
+export function deleteContextAndUnassign(id: number): void {
+  db.transaction((tx) => {
+    tx.update(subscriptions)
+      .set({ contextId: null })
+      .where(eq(subscriptions.contextId, id))
+      .run();
+    tx.delete(contexts).where(eq(contexts.id, id)).run();
+  });
+}

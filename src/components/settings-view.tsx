@@ -17,7 +17,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Category, PaymentMethod } from "@/db/schema";
+import type { Category, Context, PaymentMethod } from "@/db/schema";
 import type { AppSettings } from "@/lib/settings";
 import { COMMON_CURRENCIES } from "@/lib/currency";
 import { APP_VERSION } from "@/lib/version";
@@ -29,6 +29,9 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+  addContext,
+  updateContext,
+  deleteContext,
   addPaymentMethod,
   deletePaymentMethod,
   importBackup,
@@ -70,10 +73,12 @@ const initial: ActionState = {};
 export function SettingsView({
   settings,
   categories,
+  contexts,
   paymentMethods,
 }: {
   settings: AppSettings;
   categories: Category[];
+  contexts: Context[];
   paymentMethods: PaymentMethod[];
 }) {
   return (
@@ -88,6 +93,7 @@ export function SettingsView({
       <GeneralCard settings={settings} />
       <AppearanceCard />
       <CategoriesCard categories={categories} />
+      <ContextsCard contexts={contexts} />
       <PaymentMethodsCard paymentMethods={paymentMethods} />
       <DataCard />
 
@@ -725,6 +731,110 @@ function CategoryRow({ category }: { category: Category }) {
         onChange={(e) => setColor(e.target.value)}
         className="size-9 shrink-0 cursor-pointer rounded-md border bg-transparent"
         aria-label={`${category.name} colour`}
+      />
+      <Input value={name} onChange={(e) => setName(e.target.value)} />
+      {dirty ? (
+        <Button size="icon" onClick={save} disabled={pending} aria-label="Save">
+          <Check className="size-4" />
+        </Button>
+      ) : null}
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={remove}
+        disabled={pending}
+        aria-label="Delete"
+        className="text-muted-foreground hover:text-destructive"
+      >
+        <Trash2 className="size-4" />
+      </Button>
+    </div>
+  );
+}
+
+function ContextsCard({ contexts }: { contexts: Context[] }) {
+  const [pending, start] = useTransition();
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState("#6366f1");
+
+  function add() {
+    if (!newName.trim()) return;
+    start(async () => {
+      const res = await addContext(newName, newColor);
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success("Context added");
+        setNewName("");
+      }
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Contexts</CardTitle>
+        <CardDescription>
+          Separate spending by area — e.g. Personal vs Work. Pick a context from
+          the header to re-scope every total.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {contexts.map((c) => (
+          <ContextRow key={c.id} context={c} />
+        ))}
+
+        <div className="flex items-center gap-2 pt-2">
+          <input
+            type="color"
+            value={newColor}
+            onChange={(e) => setNewColor(e.target.value)}
+            className="size-9 shrink-0 cursor-pointer rounded-md border bg-transparent"
+            aria-label="New context colour"
+          />
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New context…"
+            onKeyDown={(e) => e.key === "Enter" && add()}
+          />
+          <Button onClick={add} disabled={pending} className="shrink-0 gap-1">
+            <Plus className="size-4" />
+            Add
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ContextRow({ context }: { context: Context }) {
+  const [name, setName] = useState(context.name);
+  const [color, setColor] = useState(context.color);
+  const [pending, start] = useTransition();
+  const dirty = name !== context.name || color !== context.color;
+
+  function save() {
+    start(async () => {
+      const res = await updateContext(context.id, name, color);
+      if (res.error) toast.error(res.error);
+      else toast.success("Context updated");
+    });
+  }
+  function remove() {
+    start(async () => {
+      await deleteContext(context.id);
+      toast.success("Context deleted");
+    });
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={color}
+        onChange={(e) => setColor(e.target.value)}
+        className="size-9 shrink-0 cursor-pointer rounded-md border bg-transparent"
+        aria-label={`${context.name} colour`}
       />
       <Input value={name} onChange={(e) => setName(e.target.value)} />
       {dirty ? (
