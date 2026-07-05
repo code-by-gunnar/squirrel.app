@@ -99,6 +99,29 @@ describe("parseSubscriptionsCsv", () => {
     expect(r.ready).toEqual([]);
     expect(r.headerError).toMatch(/Name/);
   });
+
+  it("rejects calendar-invalid dates (Feb 30) rather than rolling them over", () => {
+    const r = parseSubscriptionsCsv(csv("Name,Start date", "A,2025-02-30"), opts);
+    expect(r.ready).toEqual([]);
+    expect(r.skipped).toEqual([
+      { line: 2, name: "A", reason: 'Invalid start date "2025-02-30".' },
+    ]);
+  });
+
+  it('parses "Annually" prose to year/1', () => {
+    const r = parseSubscriptionsCsv(csv("Name,Billing", "A,Annually"), opts);
+    expect(r.ready[0]).toMatchObject({ billingCycle: "year", billingInterval: 1 });
+  });
+
+  it("rejects a non-integer billing interval", () => {
+    const r = parseSubscriptionsCsv(
+      csv("Name,Billing cycle,Billing interval", "A,month,3x"),
+      opts,
+    );
+    expect(r.skipped).toEqual([
+      { line: 2, name: "A", reason: 'Invalid billing interval "3x".' },
+    ]);
+  });
 });
 
 describe("buildImportTemplate", () => {

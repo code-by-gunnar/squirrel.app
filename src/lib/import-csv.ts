@@ -84,6 +84,7 @@ function parseBillingProse(prose: string): { cycle: BillingCycle; interval: numb
   if (!p) return null;
   const single: Record<string, BillingCycle> = {
     daily: "day", weekly: "week", monthly: "month", yearly: "year",
+    annual: "year", annually: "year",
   };
   if (single[p]) return { cycle: single[p], interval: 1 };
   const m = p.match(/^every\s+(\d+)\s+(day|week|month|year)s?$/);
@@ -102,9 +103,18 @@ function parseDate(raw: string): string | null {
   const s = raw.trim().replace(/\//g, "-");
   const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (!m) return null;
-  const iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const iso = `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
   const dt = new Date(`${iso}T00:00:00Z`);
-  return Number.isNaN(dt.getTime()) ? null : iso;
+  if (Number.isNaN(dt.getTime())) return null;
+  // Reject calendar rollovers (e.g. 2025-02-30 -> Mar 2): the parsed date must
+  // round-trip to the same year/month/day.
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() + 1 !== mo || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return iso;
 }
 
 function parseFree(raw: string): boolean {
@@ -184,12 +194,11 @@ export function parseSubscriptionsCsv(
       }
       billingCycle = c;
       if (intervalRaw) {
-        const iv = parseInt(intervalRaw, 10);
-        if (!Number.isFinite(iv) || iv < 1) {
+        if (!/^\d+$/.test(intervalRaw) || parseInt(intervalRaw, 10) < 1) {
           skipped.push({ line, name, reason: `Invalid billing interval "${intervalRaw}".` });
           continue;
         }
-        billingInterval = iv;
+        billingInterval = parseInt(intervalRaw, 10);
       }
     } else if (proseRaw) {
       const parsed = parseBillingProse(proseRaw);
