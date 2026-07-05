@@ -233,6 +233,22 @@ If your stack already has a top-level `volumes:` block, merge these two entries 
 
 Channel tokens and passwords are stored in Squirrel's database and included in JSON backups — keep backups private.
 
+## Contexts
+
+Split your subscriptions into separate scopes — e.g. **Personal** and **Work** — so
+totals, renewals and reports don't get mixed together.
+
+1. **Personal** and **Work** ship by default; add, rename, recolor or delete
+   contexts in **Settings → Contexts**.
+2. Assign a context per subscription on the add/edit form — the form
+   pre-selects whichever context is currently active.
+3. The switcher in the header re-scopes **Dashboard**, **Calendar** and
+   **Reports** to the active context.
+
+**All contexts** combines everything regardless of context; switch to a specific
+context and any subscription without one shows up under **Unassigned**. Deleting
+a context doesn't delete its subscriptions — they just fall back to unassigned.
+
 ## Importing subscriptions
 
 Coming from another tracker, or keeping your subs in a spreadsheet? Import them
