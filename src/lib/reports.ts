@@ -1,8 +1,10 @@
 import "server-only";
 import { db } from "@/db";
 import { payments } from "@/db/schema";
+import { inArray } from "drizzle-orm";
 import { listSubscriptions } from "@/lib/subscriptions";
 import { renewalsInRange, type BillingCycle } from "@/lib/billing";
+import { subscriptionIdsForContext, type ContextFilter } from "@/lib/contexts";
 
 export type MonthlySpend = {
   month: string; // "YYYY-MM"
@@ -30,19 +32,36 @@ function monthLabel(key: string): string {
  * recorded charges (actual cashflow — a yearly sub spikes in its renewal month),
  * followed by `projectedMonths` future months estimated from each active sub's
  * schedule. The current month reflects charges recorded so far.
+ *
+ * When `filter` scopes to a context, spend is attributed by the subscription's
+ * CURRENT context (the `payments` ledger has no context of its own). Reassigning
+ * a sub's context therefore retroactively moves its past cashflow between
+ * contexts — intended, since a context is a live lens over your subscriptions.
  */
-export function getMonthlySpend(months = 12, projectedMonths = 3): MonthlySpend[] {
+export function getMonthlySpend(
+  filter: ContextFilter = "all",
+  months = 12,
+  projectedMonths = 3,
+): MonthlySpend[] {
   const now = new Date();
   const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Past + current: sum recorded charges by month.
+  const ids = subscriptionIdsForContext(filter); // null = all
+  // An active context with zero subs => no charges in scope.
+  const scopedEmpty = ids !== null && ids.length === 0;
+
+  // Past + current: sum recorded charges by month, scoped to the context.
   const byMonth = new Map<string, number>();
-  for (const r of db
-    .select({ paidOn: payments.paidOn, amountBase: payments.amountBase })
-    .from(payments)
-    .all()) {
-    const key = r.paidOn.slice(0, 7);
-    byMonth.set(key, (byMonth.get(key) ?? 0) + r.amountBase);
+  if (!scopedEmpty) {
+    const rows = db
+      .select({ paidOn: payments.paidOn, amountBase: payments.amountBase })
+      .from(payments)
+      .where(ids === null ? undefined : inArray(payments.subscriptionId, ids))
+      .all();
+    for (const r of rows) {
+      const key = r.paidOn.slice(0, 7);
+      byMonth.set(key, (byMonth.get(key) ?? 0) + r.amountBase);
+    }
   }
 
   const series: MonthlySpend[] = [];
@@ -54,7 +73,7 @@ export function getMonthlySpend(months = 12, projectedMonths = 3): MonthlySpend[
 
   // Future: estimate scheduled charges per month from the compute-on-read schedule.
   if (projectedMonths > 0) {
-    const subs = listSubscriptions().filter((s) => s.status === "active" && !s.free);
+    const subs = listSubscriptions(filter).filter((s) => s.status === "active" && !s.free);
     const rangeStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1, 1);
     const rangeEnd = new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1 + projectedMonths, 0);
     const proj = new Map<string, number>();
@@ -82,14 +101,21 @@ export function getMonthlySpend(months = 12, projectedMonths = 3): MonthlySpend[
 }
 
 /** All-time and current-year spend totals in the base currency, from the ledger. */
-export function getSpendTotals(): { allTime: number; thisYear: number } {
+export function getSpendTotals(
+  filter: ContextFilter = "all",
+): { allTime: number; thisYear: number } {
   const year = `${new Date().getFullYear()}-`;
+  const ids = subscriptionIdsForContext(filter);
+  if (ids !== null && ids.length === 0) return { allTime: 0, thisYear: 0 };
+
   let allTime = 0;
   let thisYear = 0;
-  for (const r of db
+  const rows = db
     .select({ paidOn: payments.paidOn, amountBase: payments.amountBase })
     .from(payments)
-    .all()) {
+    .where(ids === null ? undefined : inArray(payments.subscriptionId, ids))
+    .all();
+  for (const r of rows) {
     allTime += r.amountBase;
     if (r.paidOn.startsWith(year)) thisYear += r.amountBase;
   }

@@ -5,12 +5,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   categories,
+  contexts,
   paymentMethods,
   subscriptions,
   payments,
   settings,
 } from "@/db/schema";
 import { saveSettings, getSettings, getBaseCurrency } from "@/lib/settings";
+import { deleteContextAndUnassign } from "@/lib/subscriptions";
 import { settingsFormSchema } from "@/lib/notify/payloads";
 import {
   channelById,
@@ -133,6 +135,49 @@ export async function deleteCategory(id: number): Promise<ActionState> {
   return { ok: true };
 }
 
+// --- Contexts ---
+
+export async function addContext(name: string, color: string): Promise<ActionState> {
+  const n = name.trim();
+  if (!n) return { error: "Name required" };
+  db.insert(contexts).values({ name: n, color: color || "#6366f1" }).run();
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  return { ok: true };
+}
+
+export async function updateContext(
+  id: number,
+  name: string,
+  color: string,
+): Promise<ActionState> {
+  const n = name.trim();
+  if (!n) return { error: "Name required" };
+  db.update(contexts).set({ name: n, color }).where(eq(contexts.id, id)).run();
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteContext(id: number): Promise<ActionState> {
+  // IMPORTANT: SQLite's `ALTER TABLE ADD COLUMN ... REFERENCES` (how context_id
+  // was added in migration 0004) does NOT enforce ON DELETE SET NULL — unlike
+  // categoryId, whose FK is inline in the original CREATE TABLE. So a bare
+  // `DELETE FROM contexts` would throw "FOREIGN KEY constraint failed" for any
+  // context still assigned. Null the assignments first, then delete —
+  // atomically. Done via `deleteContextAndUnassign` (src/lib/subscriptions.ts)
+  // rather than inline here so it can be unit-tested without hitting this
+  // action's `revalidatePath` calls, which throw outside a request scope.
+  deleteContextAndUnassign(id);
+  revalidatePath("/settings");
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/reports");
+  return { ok: true };
+}
+
 // --- Payment methods ---
 
 export async function addPaymentMethod(name: string): Promise<ActionState> {
@@ -173,10 +218,12 @@ export async function importBackup(
       tx.delete(payments).run();
       tx.delete(subscriptions).run();
       tx.delete(categories).run();
+      tx.delete(contexts).run();
       tx.delete(paymentMethods).run();
       tx.delete(settings).run();
 
       if (d.categories.length) tx.insert(categories).values(d.categories).run();
+      if (d.contexts.length) tx.insert(contexts).values(d.contexts).run();
       if (d.paymentMethods.length)
         tx.insert(paymentMethods).values(d.paymentMethods).run();
       if (d.settings.length) tx.insert(settings).values(d.settings).run();
@@ -208,6 +255,7 @@ export type ImportPreview = {
   skipped: RowError[];
   duplicateNames: string[];
   newCategories: string[];
+  newContexts: string[];
   newPaymentMethods: string[];
   headerError?: string;
 };
@@ -219,7 +267,7 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
   if (parsed.headerError) {
     return {
       ready: 0, skipped: [], duplicateNames: [],
-      newCategories: [], newPaymentMethods: [], headerError: parsed.headerError,
+      newCategories: [], newContexts: [], newPaymentMethods: [], headerError: parsed.headerError,
     };
   }
 
@@ -233,14 +281,20 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
   const existingPms = new Set(
     db.select({ name: paymentMethods.name }).from(paymentMethods).all().map((r) => lc(r.name)),
   );
+  const existingCtxs = new Set(
+    db.select({ name: contexts.name }).from(contexts).all().map((r) => lc(r.name)),
+  );
 
   const duplicateNames: string[] = [];
   const newCats = new Map<string, string>();
+  const newCtxs = new Map<string, string>();
   const newPms = new Map<string, string>();
   for (const row of parsed.ready) {
     if (existingSubs.has(lc(row.name))) duplicateNames.push(row.name);
     if (row.categoryName && !existingCats.has(lc(row.categoryName)))
       newCats.set(lc(row.categoryName), row.categoryName);
+    if (row.contextName && !existingCtxs.has(lc(row.contextName)))
+      newCtxs.set(lc(row.contextName), row.contextName);
     if (row.paymentMethodName && !existingPms.has(lc(row.paymentMethodName)))
       newPms.set(lc(row.paymentMethodName), row.paymentMethodName);
   }
@@ -250,6 +304,7 @@ export async function previewSubscriptionsCsv(text: string): Promise<ImportPrevi
     skipped: parsed.skipped,
     duplicateNames,
     newCategories: [...newCats.values()],
+    newContexts: [...newCtxs.values()],
     newPaymentMethods: [...newPms.values()],
   };
 }
@@ -277,6 +332,9 @@ export async function importSubscriptionsCsv(
       const pmMap = new Map(
         tx.select().from(paymentMethods).all().map((p) => [p.name.toLowerCase(), p.id]),
       );
+      const ctxMap = new Map(
+        tx.select().from(contexts).all().map((c) => [c.name.toLowerCase(), c.id]),
+      );
       const ensureCat = (name: string): number => {
         const key = name.toLowerCase();
         const found = catMap.get(key);
@@ -293,6 +351,14 @@ export async function importSubscriptionsCsv(
         pmMap.set(key, id);
         return id;
       };
+      const ensureCtx = (name: string): number => {
+        const key = name.toLowerCase();
+        const found = ctxMap.get(key);
+        if (found != null) return found;
+        const id = Number(tx.insert(contexts).values({ name }).run().lastInsertRowid);
+        ctxMap.set(key, id);
+        return id;
+      };
 
       for (const row of parsed.ready) {
         const info = tx
@@ -307,6 +373,7 @@ export async function importSubscriptionsCsv(
             startDate: row.startDate,
             trialEndDate: row.trialEndDate,
             categoryId: row.categoryName ? ensureCat(row.categoryName) : null,
+            contextId: row.contextName ? ensureCtx(row.contextName) : null,
             paymentMethodId: row.paymentMethodName ? ensurePm(row.paymentMethodName) : null,
             notes: row.notes,
             free: row.free,

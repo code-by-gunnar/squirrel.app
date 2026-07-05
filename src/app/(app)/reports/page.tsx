@@ -2,6 +2,7 @@ import { PiggyBank, CalendarRange } from "lucide-react";
 import { getBaseCurrency } from "@/lib/settings";
 import { formatCurrency } from "@/lib/currency";
 import { getMonthlySpend, getSpendTotals } from "@/lib/reports";
+import { getActiveContextFilter } from "@/lib/contexts";
 import { MonthlySpendChart } from "@/components/monthly-spend-chart";
 import {
   Card,
@@ -38,10 +39,11 @@ function StatCard({
   );
 }
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  const filter = await getActiveContextFilter();
   const base = getBaseCurrency();
-  const monthly = getMonthlySpend();
-  const totals = getSpendTotals();
+  const monthly = getMonthlySpend(filter);
+  const totals = getSpendTotals(filter);
   const year = new Date().getFullYear();
 
   return (

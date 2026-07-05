@@ -128,6 +128,24 @@ describe("parseSubscriptionsCsv", () => {
       { line: 2, name: "A", reason: 'Invalid billing interval "3x".' },
     ]);
   });
+
+  it("parses an optional Context column", () => {
+    const csv = [
+      "Name,Price,Currency,Billing cycle,Start date,Context",
+      "Figma,12,USD,month,2024-01-01,Work",
+      "Netflix,9.99,GBP,month,2024-01-01,",
+    ].join("\n");
+    const res = parseSubscriptionsCsv(csv, { baseCurrency: "GBP" });
+    expect(res.ready).toHaveLength(2);
+    expect(res.ready[0].contextName).toBe("Work");
+    expect(res.ready[1].contextName).toBeNull();
+  });
+
+  it("defaults contextName to null when the column is absent", () => {
+    const csv = ["Name,Price", "Spotify,9.99"].join("\n");
+    const res = parseSubscriptionsCsv(csv, { baseCurrency: "GBP" });
+    expect(res.ready[0].contextName).toBeNull();
+  });
 });
 
 describe("buildImportTemplate", () => {

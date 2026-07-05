@@ -5,6 +5,7 @@ import {
   payments,
   subscriptions,
   categories,
+  contexts,
   paymentMethods,
   settings,
 } from "@/db/schema";
@@ -28,6 +29,7 @@ export function buildBackup(): Backup {
     data: {
       settings: db.select().from(settings).all(),
       categories: db.select().from(categories).all(),
+      contexts: db.select().from(contexts).all(),
       paymentMethods: db.select().from(paymentMethods).all(),
       subscriptions: db.select().from(subscriptions).all(),
       payments: db.select().from(payments).all(),
@@ -46,6 +48,7 @@ export function buildSubscriptionsCsv(): string {
     "Currency",
     "Billing",
     "Category",
+    "Context",
     "Payment method",
     "Start date",
     "Next renewal",
@@ -62,6 +65,7 @@ export function buildSubscriptionsCsv(): string {
     s.currencyCode,
     describeCycle(s.billingCycle as BillingCycle, s.billingInterval),
     s.categoryName ?? "",
+    s.contextName ?? "",
     s.paymentMethodName ?? "",
     s.startDate,
     s.nextRenewal,

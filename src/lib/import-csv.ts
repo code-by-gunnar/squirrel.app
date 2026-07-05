@@ -10,6 +10,7 @@ export type ParsedSubRow = {
   startDate: string; // YYYY-MM-DD
   trialEndDate: string | null;
   categoryName: string | null;
+  contextName: string | null;
   paymentMethodName: string | null;
   free: boolean;
   url: string | null;
@@ -34,6 +35,7 @@ export const SUBSCRIPTION_IMPORT_HEADERS = [
   "Start date",
   "Trial end date",
   "Category",
+  "Context",
   "Payment method",
   "Free",
   "URL",
@@ -58,6 +60,7 @@ const HEADER_ALIASES: Record<string, string> = {
   "trial end date": "trialEndDate",
   "trial end": "trialEndDate",
   category: "categoryName",
+  context: "contextName",
   "payment method": "paymentMethodName",
   payment: "paymentMethodName",
   free: "free",
@@ -241,6 +244,7 @@ export function parseSubscriptionsCsv(
       startDate,
       trialEndDate,
       categoryName: get("categoryName") || null,
+      contextName: get("contextName") || null,
       paymentMethodName: get("paymentMethodName") || null,
       free: parseFree(get("free")),
       url: get("url") || null,
@@ -255,7 +259,7 @@ export function parseSubscriptionsCsv(
 export function buildImportTemplate(): string {
   const example = [
     "Netflix", "15.99", "GBP", "month", "1", "2023-04-01",
-    "", "Streaming", "Credit Card", "no", "", "Family plan",
+    "", "Streaming", "Personal", "Credit Card", "no", "", "Family plan",
   ];
   return toCsv([...SUBSCRIPTION_IMPORT_HEADERS], [example]);
 }

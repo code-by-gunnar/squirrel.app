@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { categories, paymentMethods, settings } from "./schema";
+import { categories, contexts, paymentMethods, settings } from "./schema";
 
 /** Application setting defaults, written on first run only. */
 export const DEFAULT_SETTINGS: Record<string, string> = {
@@ -34,6 +34,11 @@ const DEFAULT_CATEGORIES: { name: string; color: string }[] = [
   { name: "Other", color: "#64748b" },
 ];
 
+const DEFAULT_CONTEXTS: { name: string; color: string }[] = [
+  { name: "Personal", color: "#6366f1" },
+  { name: "Work", color: "#0ea5e9" },
+];
+
 const DEFAULT_PAYMENT_METHODS = ["Credit Card", "Debit Card", "PayPal", "Bank Transfer"];
 
 /**
@@ -50,6 +55,11 @@ export function seedDefaults(db: BetterSQLite3Database<Record<string, unknown>>)
   const catCount = db.get<{ c: number }>(sql`SELECT COUNT(*) as c FROM categories`);
   if (!catCount || catCount.c === 0) {
     db.insert(categories).values(DEFAULT_CATEGORIES).run();
+  }
+
+  const ctxCount = db.get<{ c: number }>(sql`SELECT COUNT(*) as c FROM contexts`);
+  if (!ctxCount || ctxCount.c === 0) {
+    db.insert(contexts).values(DEFAULT_CONTEXTS).run();
   }
 
   const pmCount = db.get<{ c: number }>(

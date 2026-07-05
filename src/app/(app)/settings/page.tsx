@@ -1,6 +1,6 @@
 import { SettingsView } from "@/components/settings-view";
 import { getSettings } from "@/lib/settings";
-import { getCategories, getPaymentMethods } from "@/lib/subscriptions";
+import { getCategories, getContexts, getPaymentMethods } from "@/lib/subscriptions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ export default function SettingsPage() {
     <SettingsView
       settings={getSettings()}
       categories={getCategories()}
+      contexts={getContexts()}
       paymentMethods={getPaymentMethods()}
     />
   );

@@ -8,6 +8,11 @@ const CategoryRow = z.object({
   name: z.string(),
   color: z.string(),
 });
+const ContextRow = z.object({
+  id: z.number().int(),
+  name: z.string(),
+  color: z.string(),
+});
 const PaymentMethodRow = z.object({ id: z.number().int(), name: z.string() });
 const SubscriptionRow = z.object({
   id: z.number().int(),
@@ -21,6 +26,7 @@ const SubscriptionRow = z.object({
   startDate: z.string(),
   trialEndDate: z.string().nullable(),
   categoryId: z.number().int().nullable(),
+  contextId: z.number().int().nullable().default(null),
   paymentMethodId: z.number().int().nullable(),
   notes: z.string().nullable(),
   active: z.boolean(),
@@ -50,6 +56,7 @@ export const BackupSchema = z.object({
   data: z.object({
     settings: z.array(SettingRow),
     categories: z.array(CategoryRow),
+    contexts: z.array(ContextRow).default([]),
     paymentMethods: z.array(PaymentMethodRow),
     subscriptions: z.array(SubscriptionRow),
     payments: z.array(PaymentRow),

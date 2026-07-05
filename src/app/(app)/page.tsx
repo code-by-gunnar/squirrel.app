@@ -3,6 +3,7 @@ import { Wallet, CalendarClock, Layers, TrendingUp, ArrowRight } from "lucide-re
 import { listSubscriptions } from "@/lib/subscriptions";
 import { computeDashboardStats } from "@/lib/stats";
 import { getBaseCurrency } from "@/lib/settings";
+import { getActiveContextFilter } from "@/lib/contexts";
 import { formatCurrency } from "@/lib/currency";
 import { CategoryChart } from "@/components/category-chart";
 import { SubscriptionLogo } from "@/components/subscription-logo";
@@ -42,8 +43,9 @@ function StatCard({
   );
 }
 
-export default function DashboardPage() {
-  const subs = listSubscriptions();
+export default async function DashboardPage() {
+  const filter = await getActiveContextFilter();
+  const subs = listSubscriptions(filter);
   const base = getBaseCurrency();
   const stats = computeDashboardStats(subs);
   const next = stats.upcoming[0];
