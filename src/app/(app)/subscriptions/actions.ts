@@ -21,6 +21,7 @@ import {
   backfillPayments,
   rebuildPaymentsForSub,
   deletePaymentsForSub,
+  recordTopUp,
 } from "@/lib/payments";
 
 // Ledger sync is best-effort: the subscription is already saved, and the daily
@@ -82,6 +83,11 @@ const SubscriptionSchema = z.object({
     .string()
     .nullish()
     .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)),
+  prepaid: z.boolean(),
+  depletesOn: z
+    .string()
+    .nullish()
+    .transform((v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)),
 }).superRefine((data, ctx) => {
   // A paid subscription needs a real price; a free one is saved at 0.
   if (!data.free && data.price <= 0) {
@@ -128,6 +134,8 @@ export async function saveSubscription(
     free: parseCheckbox(formData, "free"),
     cancelled: parseCheckbox(formData, "cancelled"),
     endsOn: formData.get("endsOn"),
+    prepaid: parseCheckbox(formData, "prepaid"),
+    depletesOn: formData.get("depletesOn"),
   });
 
   if (!parsed.success) {
@@ -138,6 +146,15 @@ export async function saveSubscription(
 
   // Free subs carry no price.
   if (values.free) values.price = 0;
+
+  // Prepaid packs are one-off, never free, never cancelled, and carry no cycle.
+  if (values.prepaid) {
+    values.free = false;
+    values.cancelled = false;
+    values.endsOn = null;
+  } else {
+    values.depletesOn = null; // depletesOn only means anything for prepaid
+  }
 
   // When cancelled, default the access-ends date to the end of the current paid
   // period (the next renewal). When not cancelled, there is no end date.
@@ -165,7 +182,9 @@ export async function saveSubscription(
       const before = getSubscription(id);
       db.update(subscriptions).set(values).where(eq(subscriptions.id, id)).run();
 
-      if (values.free) {
+      if (values.prepaid) {
+        // Editing a prepaid sub never adds/rebuilds charges — top-ups are explicit.
+      } else if (values.free) {
         // A free sub has no charges — clear any history it accumulated.
         deletePaymentsForSub(id);
       } else {
@@ -174,6 +193,7 @@ export async function saveSubscription(
         const scheduleChanged =
           !before ||
           before.free ||
+          before.prepaid ||
           before.startDate !== values.startDate ||
           before.billingCycle !== values.billingCycle ||
           before.billingInterval !== values.billingInterval;
@@ -181,7 +201,17 @@ export async function saveSubscription(
       }
     } else {
       const info = db.insert(subscriptions).values(values).run();
-      if (!values.free) await safeBackfill(Number(info.lastInsertRowid));
+      const newId = Number(info.lastInsertRowid);
+      if (values.prepaid) {
+        // Record the first purchase as a ledger charge.
+        try {
+          await recordTopUp(newId, values.startDate, values.price, values.currencyCode);
+        } catch (e) {
+          console.error("[squirrel] prepaid first-charge failed", e);
+        }
+      } else if (!values.free) {
+        await safeBackfill(newId);
+      }
     }
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to save" };
@@ -249,6 +279,38 @@ export async function reactivateSubscription(id: number): Promise<SaveState> {
     .set({ cancelled: false, endsOn: null, active: true })
     .where(eq(subscriptions.id, id))
     .run();
+
+  revalidatePath("/subscriptions");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/reports");
+  return { ok: true };
+}
+
+/**
+ * Record a prepaid top-up: append a ledger charge and refresh the sub's stored
+ * amount (the next prefill) and its "runs out around" estimate.
+ */
+export async function topUp(
+  id: number,
+  amount: number,
+  paidOn: string,
+  depletesOn: string | null,
+): Promise<SaveState> {
+  if (!(amount > 0)) return { error: "Amount must be greater than 0" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOn)) return { error: "Invalid date" };
+  const sub = getSubscription(id);
+  if (!sub || !sub.prepaid) return { error: "Not a prepaid subscription" };
+
+  try {
+    await recordTopUp(id, paidOn, amount, sub.currencyCode);
+    db.update(subscriptions)
+      .set({ price: amount, depletesOn: depletesOn ?? null })
+      .where(eq(subscriptions.id, id))
+      .run();
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Top up failed" };
+  }
 
   revalidatePath("/subscriptions");
   revalidatePath("/");
