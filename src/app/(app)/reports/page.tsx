@@ -3,7 +3,7 @@ import { getBaseCurrency } from "@/lib/settings";
 import { formatCurrency } from "@/lib/currency";
 import { getMonthlySpend, getSpendTotals } from "@/lib/reports";
 import { getActiveContextFilter } from "@/lib/contexts";
-import { MonthlySpendChart } from "@/components/monthly-spend-chart";
+import { MonthlyReport } from "@/components/monthly-report";
 import {
   Card,
   CardContent,
@@ -74,12 +74,12 @@ export default async function ReportsPage() {
         <CardHeader>
           <CardTitle>Monthly spend</CardTitle>
           <CardDescription>
-            Actual charges per month in {base}. The next 3 months (faded) are
-            projected from your renewal schedule.
+            Per month in {base} — solid is billed, faded is forecast from your
+            renewal schedule. Click a month to see the subscriptions behind it.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <MonthlySpendChart data={monthly} baseCurrency={base} />
+          <MonthlyReport data={monthly} baseCurrency={base} />
         </CardContent>
       </Card>
     </div>
