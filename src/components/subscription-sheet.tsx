@@ -99,7 +99,10 @@ export function SubscriptionSheet({
   const [billingInterval, setBillingInterval] = useState(
     String(subscription?.billingInterval ?? 1),
   );
-  const [free, setFree] = useState(subscription?.free ?? false);
+  const [billingType, setBillingType] = useState<"recurring" | "prepaid" | "free">(
+    subscription?.prepaid ? "prepaid" : subscription?.free ? "free" : "recurring",
+  );
+  const [depletesOn, setDepletesOn] = useState(subscription?.depletesOn ?? "");
   const [cancelled, setCancelled] = useState(subscription?.cancelled ?? false);
   const [endsOn, setEndsOn] = useState(subscription?.endsOn ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(subscription?.logoUrl ?? null);
@@ -134,7 +137,10 @@ export function SubscriptionSheet({
     setUrl(subscription?.url ?? "");
     setStartDate(subscription?.startDate ?? new Date().toISOString().slice(0, 10));
     setBillingInterval(String(subscription?.billingInterval ?? 1));
-    setFree(subscription?.free ?? false);
+    setBillingType(
+      subscription?.prepaid ? "prepaid" : subscription?.free ? "free" : "recurring",
+    );
+    setDepletesOn(subscription?.depletesOn ?? "");
     setCancelled(subscription?.cancelled ?? false);
     setEndsOn(subscription?.endsOn ?? "");
     setLogoUrl(subscription?.logoUrl ?? null);
@@ -142,6 +148,9 @@ export function SubscriptionSheet({
     setCandidates([]);
     setLogoQuery("");
   }, [open, subscription, baseCurrency, defaultContextId]);
+
+  const isPrepaid = billingType === "prepaid";
+  const isFree = billingType === "free";
 
   // Turning "Cancelled" on pre-fills the end date with the end of the current
   // paid period (the next renewal), which is the usual "access until" date.
@@ -377,26 +386,45 @@ export function SubscriptionSheet({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div>
-              <p className="text-sm font-medium">Free plan</p>
-              <p className="text-xs text-muted-foreground">
-                On a free tier — no billing, tracked for awareness
-              </p>
-            </div>
-            <Switch name="free" checked={free} onCheckedChange={setFree} />
+          <div className="space-y-2">
+            <Label>Billing type</Label>
+            <Select
+              value={billingType}
+              onValueChange={(v) => setBillingType((v ?? "recurring") as typeof billingType)}
+              items={{ recurring: "Recurring", prepaid: "Prepaid credits", free: "Free" }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recurring">Recurring</SelectItem>
+                <SelectItem value="prepaid">Prepaid credits</SelectItem>
+                <SelectItem value="free">Free</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {isPrepaid
+                ? "A pack you buy up front and top up — recorded as one-off charges."
+                : isFree
+                  ? "On a free tier — tracked for awareness, left out of spend."
+                  : "Bills on a repeating cycle."}
+            </p>
           </div>
 
-          <div className={cn("grid grid-cols-2 gap-3", free && "hidden")}>
+          {isFree ? <input type="hidden" name="free" value="on" /> : null}
+          {isPrepaid ? <input type="hidden" name="prepaid" value="on" /> : null}
+          {isPrepaid ? <input type="hidden" name="depletesOn" value={depletesOn} /> : null}
+
+          <div className={cn("grid grid-cols-2 gap-3", isFree && "hidden")}>
             <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
+              <Label htmlFor="price">{isPrepaid ? "Amount paid" : "Price"}</Label>
               <Input
                 id="price"
                 name="price"
                 type="number"
                 step="0.01"
                 min="0"
-                required={!free}
+                required={!isFree}
                 defaultValue={subscription?.price ?? ""}
                 placeholder="9.99"
               />
@@ -418,7 +446,7 @@ export function SubscriptionSheet({
             </div>
           </div>
 
-          <div className={cn("grid grid-cols-2 gap-3", free && "hidden")}>
+          <div className={cn("grid grid-cols-2 gap-3", (isFree || isPrepaid) && "hidden")}>
             <div className="space-y-2">
               <Label htmlFor="billingInterval">Bills every</Label>
               <Input
@@ -452,7 +480,9 @@ export function SubscriptionSheet({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="startDate">Start / first payment date</Label>
+            <Label htmlFor="startDate">
+              {isPrepaid ? "Purchase date" : "Start / first payment date"}
+            </Label>
             <Input
               id="startDate"
               name="startDate"
@@ -462,6 +492,21 @@ export function SubscriptionSheet({
               onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
+
+          {isPrepaid ? (
+            <div className="space-y-2">
+              <Label htmlFor="depletesOn">Runs out around (optional)</Label>
+              <Input
+                id="depletesOn"
+                type="date"
+                value={depletesOn}
+                onChange={(e) => setDepletesOn(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                We&apos;ll remind you to top up before this date. Leave blank if you&apos;re not sure.
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -573,36 +618,38 @@ export function SubscriptionSheet({
             <Switch name="active" defaultChecked={subscription?.active ?? true} />
           </div>
 
-          <div className="rounded-lg border p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Cancelled</p>
-                <p className="text-xs text-muted-foreground">
-                  Stays usable until it expires, then goes inactive
-                </p>
-              </div>
-              <Switch
-                name="cancelled"
-                checked={cancelled}
-                onCheckedChange={handleCancelledChange}
-              />
-            </div>
-            {cancelled ? (
-              <div className="mt-3 space-y-2 border-t pt-3">
-                <Label htmlFor="endsOn">Access ends on</Label>
-                <Input
-                  id="endsOn"
-                  name="endsOn"
-                  type="date"
-                  value={endsOn}
-                  onChange={(e) => setEndsOn(e.target.value)}
+          {!isPrepaid ? (
+            <div className="rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Cancelled</p>
+                  <p className="text-xs text-muted-foreground">
+                    Stays usable until it expires, then goes inactive
+                  </p>
+                </div>
+                <Switch
+                  name="cancelled"
+                  checked={cancelled}
+                  onCheckedChange={handleCancelledChange}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Defaults to the end of your current paid period.
-                </p>
               </div>
-            ) : null}
-          </div>
+              {cancelled ? (
+                <div className="mt-3 space-y-2 border-t pt-3">
+                  <Label htmlFor="endsOn">Access ends on</Label>
+                  <Input
+                    id="endsOn"
+                    name="endsOn"
+                    type="date"
+                    value={endsOn}
+                    onChange={(e) => setEndsOn(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Defaults to the end of your current paid period.
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
