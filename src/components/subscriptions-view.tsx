@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   Wallet,
   Ban,
   RotateCcw,
+  LoaderCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Category, Context, PaymentMethod, Subscription } from "@/db/schema";
@@ -24,12 +25,14 @@ import {
   deleteSubscription,
   cancelSubscription,
   reactivateSubscription,
+  topUp,
 } from "@/app/(app)/subscriptions/actions";
 import { SubscriptionSheet } from "@/components/subscription-sheet";
 import { SubscriptionLogo } from "@/components/subscription-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +78,13 @@ function renewalLabel(days: number): { text: string; tone: string } {
 function statusBadge(
   sub: EnrichedSubscription,
 ): { label: string; className: string } | null {
+  if (sub.prepaid) {
+    return {
+      label: "Prepaid",
+      className:
+        "border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-400",
+    };
+  }
   switch (sub.status) {
     case "cancelled":
       return {
@@ -95,6 +105,18 @@ function statusBadge(
 function statusLine(
   sub: EnrichedSubscription,
 ): { text: string; tone: string; sub?: string } {
+  if (sub.prepaid) {
+    if (sub.depletesOn === null) {
+      return { text: "Prepaid", tone: "text-muted-foreground" };
+    }
+    const d = sub.daysUntilDepletion ?? 0;
+    if (d < 0) {
+      return { text: `Ran out ~${sub.depletesOn}`, tone: "text-muted-foreground", sub: sub.depletesOn };
+    }
+    const text = d === 0 ? "Runs out today" : d === 1 ? "Runs out tomorrow" : `Runs out in ${d} days`;
+    const tone = d <= 7 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground";
+    return { text, tone, sub: sub.depletesOn };
+  }
   if (sub.status === "cancelled") {
     const d = sub.daysUntilEnd ?? 0;
     const text = d <= 0 ? "Ends today" : d === 1 ? "Ends tomorrow" : `Ends in ${d} days`;
@@ -122,6 +144,7 @@ export function SubscriptionsView({
   const [editing, setEditing] = useState<Subscription | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EnrichedSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [topUpTarget, setTopUpTarget] = useState<EnrichedSubscription | null>(null);
 
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("renewal");
@@ -338,6 +361,12 @@ export function SubscriptionsView({
                       <MoreVertical className="size-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {sub.prepaid ? (
+                        <DropdownMenuItem onClick={() => setTopUpTarget(sub)}>
+                          <Plus className="size-4" />
+                          Top up
+                        </DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem onClick={() => openEdit(sub)}>
                         <Pencil className="size-4" />
                         Edit
@@ -383,6 +412,13 @@ export function SubscriptionsView({
                   <div>
                     {sub.free ? (
                       <p className="text-lg font-semibold">Free</p>
+                    ) : sub.prepaid ? (
+                      <>
+                        <p className="text-lg font-semibold">
+                          {formatCurrency(sub.price, sub.currencyCode)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">credits</p>
+                      </>
                     ) : (
                       <>
                         <p className="text-lg font-semibold">
@@ -471,7 +507,84 @@ export function SubscriptionsView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <TopUpDialog target={topUpTarget} onClose={() => setTopUpTarget(null)} />
     </div>
+  );
+}
+
+function TopUpDialog({
+  target,
+  onClose,
+}: {
+  target: EnrichedSubscription | null;
+  onClose: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState("");
+  const [runsOut, setRunsOut] = useState("");
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (target) {
+      setAmount(String(target.price ?? ""));
+      setDate(new Date().toISOString().slice(0, 10));
+      setRunsOut(target.depletesOn ?? "");
+    }
+  }, [target]);
+
+  async function submit() {
+    if (!target) return;
+    const amt = Number(amount);
+    if (!(amt > 0)) {
+      toast.error("Enter an amount greater than 0");
+      return;
+    }
+    setPending(true);
+    const res = await topUp(target.id, amt, date, runsOut || null);
+    setPending(false);
+    if (res.error) toast.error(res.error);
+    else {
+      toast.success("Topped up");
+      onClose();
+    }
+  }
+
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Top up {target?.name}</DialogTitle>
+          <DialogDescription>
+            Records a one-off charge and updates when it runs out.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="tuAmount">Amount ({target?.currencyCode})</Label>
+              <Input id="tuAmount" type="number" step="0.01" min="0" value={amount}
+                onChange={(e) => setAmount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tuDate">Date</Label>
+              <Input id="tuDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tuRunsOut">Runs out around (optional)</Label>
+            <Input id="tuRunsOut" type="date" value={runsOut} onChange={(e) => setRunsOut(e.target.value)} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button onClick={submit} disabled={pending}>
+            {pending ? <LoaderCircle className="size-4 animate-spin" /> : null}
+            Top up
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
