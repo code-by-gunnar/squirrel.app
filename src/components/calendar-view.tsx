@@ -30,7 +30,7 @@ import {
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-type DayEntry = { sub: EnrichedSubscription };
+type DayEntry = { sub: EnrichedSubscription; kind: "renewal" | "depletion" };
 
 export function CalendarView({
   subscriptions,
@@ -55,28 +55,38 @@ export function CalendarView({
   // Map ISO date -> subscriptions renewing that day, across the visible grid.
   const byDay = useMemo(() => {
     const map = new Map<string, DayEntry[]>();
-    // Only subs that actually renew — exclude cancelled (stopped) and free (no billing).
-    const active = subscriptions.filter((s) => s.status === "active" && !s.free);
+    // Only subs that actually renew — exclude cancelled (stopped), free (no billing), and prepaid (no recurring renewal).
+    const active = subscriptions.filter(
+      (s) => s.status === "active" && !s.free && !s.prepaid,
+    );
     for (const sub of active) {
       const dates = renewalsInRange(
-        sub.startDate,
-        sub.billingCycle as BillingCycle,
-        sub.billingInterval,
-        gridStart,
-        gridEnd,
+        sub.startDate, sub.billingCycle as BillingCycle, sub.billingInterval,
+        gridStart, gridEnd,
       );
       for (const d of dates) {
         const key = toISODate(d);
         const list = map.get(key) ?? [];
-        list.push({ sub });
+        list.push({ sub, kind: "renewal" });
         map.set(key, list);
       }
+    }
+    // Prepaid subs: a single "runs out ~" marker on their depletesOn date.
+    for (const sub of subscriptions) {
+      if (sub.status !== "active") continue;
+      if (!sub.prepaid || !sub.depletesOn) continue;
+      if (sub.depletesOn < toISODate(gridStart) || sub.depletesOn > toISODate(gridEnd)) continue;
+      const list = map.get(sub.depletesOn) ?? [];
+      list.push({ sub, kind: "depletion" });
+      map.set(sub.depletesOn, list);
     }
     return map;
   }, [subscriptions, gridStart, gridEnd]);
 
   const selectedEntries = selected ? (byDay.get(selected) ?? []) : [];
-  const selectedTotal = selectedEntries.reduce((s, e) => s + e.sub.priceBase, 0);
+  const selectedTotal = selectedEntries
+    .filter((e) => e.kind === "renewal")
+    .reduce((s, e) => s + e.sub.priceBase, 0);
   const today = toISODate(new Date());
 
   return (
@@ -145,7 +155,12 @@ export function CalendarView({
                           <span
                             key={i}
                             className="size-1.5 rounded-full"
-                            style={{ backgroundColor: e.sub.categoryColor ?? "#64748b" }}
+                            style={{
+                              backgroundColor:
+                                e.kind === "depletion"
+                                  ? "#d97706"
+                                  : e.sub.categoryColor ?? "#64748b",
+                            }}
                           />
                         ))}
                         {entries.length > 3 ? (
@@ -170,12 +185,12 @@ export function CalendarView({
             </CardTitle>
             <CardDescription>
               {selectedEntries.length === 0
-                ? "Nothing renews on this day."
-                : `${selectedEntries.length} renewal${selectedEntries.length > 1 ? "s" : ""}`}
+                ? "Nothing due on this day."
+                : `${selectedEntries.length} item${selectedEntries.length > 1 ? "s" : ""}`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {selectedEntries.map(({ sub }, i) => (
+            {selectedEntries.map(({ sub, kind }, i) => (
               <div key={i} className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3">
                   <SubscriptionLogo
@@ -191,7 +206,7 @@ export function CalendarView({
                   </div>
                 </div>
                 <p className="text-sm font-medium">
-                  {formatCurrency(sub.price, sub.currencyCode)}
+                  {kind === "depletion" ? "runs out" : formatCurrency(sub.price, sub.currencyCode)}
                 </p>
               </div>
             ))}

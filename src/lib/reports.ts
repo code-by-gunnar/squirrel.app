@@ -73,7 +73,9 @@ export function getMonthlySpend(
 
   // Future: estimate scheduled charges per month from the compute-on-read schedule.
   if (projectedMonths > 0) {
-    const subs = listSubscriptions(filter).filter((s) => s.status === "active" && !s.free);
+    const subs = listSubscriptions(filter).filter(
+      (s) => s.status === "active" && !s.free && !s.prepaid,
+    );
     const rangeStart = new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1, 1);
     const rangeEnd = new Date(thisMonth.getFullYear(), thisMonth.getMonth() + 1 + projectedMonths, 0);
     const proj = new Map<string, number>();

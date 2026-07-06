@@ -56,6 +56,7 @@ export function buildSubscriptionsCsv(): string {
     `Yearly (${base})`,
     "Status",
     "Free",
+    "Prepaid",
     "Notes",
   ];
 
@@ -73,6 +74,7 @@ export function buildSubscriptionsCsv(): string {
     s.yearlyBase.toFixed(2),
     s.status,
     s.free ? "yes" : "no",
+    s.prepaid ? "yes" : "no",
     s.notes ?? "",
   ]);
 

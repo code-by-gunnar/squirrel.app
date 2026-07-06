@@ -69,6 +69,11 @@ immutable start date, so nothing to sync and nothing drifts.
   but can still use.
 - **Free-tier tracking** — flag a service you're on the free plan for. It's kept
   for awareness but left out of spend totals, renewals and reminders.
+- **Prepaid / credit subs** — for services you top up rather than pay a recurring
+  fee (data bundles, credit packs, prepaid SIMs): each purchase is a one-off
+  charge in Reports, with no recurring cost counted in the dashboard's monthly
+  average. An optional "runs out around" date drives a top-up reminder. See
+  [Prepaid & credit subscriptions](#prepaid--credit-subscriptions).
 - **Import, export & backup** — bulk-**import** subscriptions from a CSV (coming
   from another tracker or a spreadsheet) with a preview step, auto-created
   categories/payment methods and backfilled history; **export** your payment
@@ -253,6 +258,21 @@ totals, renewals and reports don't get mixed together.
 **All contexts** combines everything regardless of context; switch to a specific
 context and any subscription without one shows up under **Unassigned**. Deleting
 a context doesn't delete its subscriptions — they just fall back to unassigned.
+
+## Prepaid & credit subscriptions
+
+For anything you top up instead of paying a recurring fee — data bundles, credit
+packs, prepaid SIMs — pick **Prepaid credits** as the billing type on the
+add/edit form. Each purchase (and every later top-up) is logged as a one-off
+charge: it counts in **Reports**' cashflow, but not in the dashboard's
+normalized monthly spend, since there's no recurring cost to average.
+
+Set an optional **runs out around** date when you add or top up a sub — it
+drives a top-up reminder (alongside renewal reminders) as that date
+approaches, and shows an amber marker on the **Calendar**. To log a top-up
+later, use the card's **⋮ → Top up** action: enter the amount, date and (optionally)
+a new runs-out date. Multiple top-ups on the same day sum into a single day's
+charge in Reports.
 
 ## Importing subscriptions
 

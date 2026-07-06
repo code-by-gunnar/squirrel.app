@@ -28,7 +28,7 @@ export function computeDashboardStats(
   // Spend figures reflect ongoing recurring cost only. Cancelled subs are already
   // paid for the current term and won't renew, and free subs have no charge — so
   // both are excluded from monthly/yearly totals and the category breakdown.
-  const paid = active.filter((s) => s.status === "active" && !s.free);
+  const paid = active.filter((s) => s.status === "active" && !s.free && !s.prepaid);
 
   const monthlyTotal = paid.reduce((sum, s) => sum + s.monthlyBase, 0);
   const yearlyTotal = paid.reduce((sum, s) => sum + s.yearlyBase, 0);
@@ -46,7 +46,7 @@ export function computeDashboardStats(
   // Only subs that actually bill belong in "upcoming renewals" — exclude
   // cancelled (won't renew) and free (no billing).
   const upcoming = active
-    .filter((s) => s.status === "active" && !s.free)
+    .filter((s) => s.status === "active" && !s.free && !s.prepaid)
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 5);
 

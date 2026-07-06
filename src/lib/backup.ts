@@ -34,6 +34,8 @@ const SubscriptionRow = z.object({
   free: z.boolean(),
   cancelled: z.boolean(),
   endsOn: z.string().nullable(),
+  prepaid: z.boolean().default(false),
+  depletesOn: z.string().nullable().default(null),
   createdAt: z.string(),
 });
 const PaymentRow = z.object({

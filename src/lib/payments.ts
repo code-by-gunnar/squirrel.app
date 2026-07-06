@@ -1,5 +1,5 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   subscriptions,
@@ -52,7 +52,7 @@ export function deletePaymentsForSub(subId: number): void {
  */
 export async function backfillPayments(subId: number): Promise<void> {
   const sub = loadSub(subId);
-  if (!sub || sub.free) return;
+  if (!sub || sub.free || sub.prepaid) return;
 
   const dates = occurrenceDates(sub);
   if (dates.length === 0) return;
@@ -84,6 +84,48 @@ export async function backfillPayments(subId: number): Promise<void> {
 }
 
 /**
+ * Record a single prepaid top-up as a ledger charge on `paidOn`, snapshotting the
+ * FX rate for that date. If a charge already exists for this sub on this date
+ * (the unique index), the amounts are SUMMED into it — so two top-ups on the same
+ * day read as one day's spend and the monthly total stays correct.
+ */
+export async function recordTopUp(
+  subId: number,
+  paidOn: string,
+  amount: number,
+  currencyCode: string,
+): Promise<void> {
+  const base = getBaseCurrency();
+  const sameCurrency = currencyCode === base;
+
+  let rate = 1;
+  if (!sameCurrency) {
+    const historical = await getRatesForRange(currencyCode, base, paidOn, paidOn);
+    rate = rateForDate(historical, paidOn) ?? currentRateMap().get(currencyCode) ?? 1;
+  }
+  const amountBase = amount * rate;
+
+  db.insert(payments)
+    .values({
+      subscriptionId: subId,
+      paidOn,
+      amount,
+      currencyCode,
+      amountBase,
+      baseCurrency: base,
+      fxRate: rate,
+    })
+    .onConflictDoUpdate({
+      target: [payments.subscriptionId, payments.paidOn],
+      set: {
+        amount: sql`${payments.amount} + ${amount}`,
+        amountBase: sql`${payments.amountBase} + ${amountBase}`,
+      },
+    })
+    .run();
+}
+
+/**
  * Wipe and rebuild a subscription's ledger. Used only when the *schedule*
  * changes (start date / cycle / interval), never on a price change — past rows
  * are real historical facts and must survive a price edit.
@@ -107,7 +149,7 @@ export async function runDailyPayments(): Promise<{ inserted: number; error?: st
     const rows: NewPayment[] = [];
 
     for (const sub of subs) {
-      if (!sub.active || sub.free) continue;
+      if (!sub.active || sub.free || sub.prepaid) continue;
       const dates = occurrenceDates(sub, from);
       if (dates.length === 0) continue;
 

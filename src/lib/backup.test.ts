@@ -117,4 +117,38 @@ describe("parseBackup", () => {
       expect(res.data.data.subscriptions[0].contextId).toBe(1);
     }
   });
+
+  it("round-trips prepaid + depletesOn and defaults them for old backups", () => {
+    const withPrepaid = {
+      app: "squirrel", schema: 1,
+      data: {
+        settings: [], categories: [], contexts: [], paymentMethods: [], payments: [],
+        subscriptions: [{
+          id: 1, name: "Credits", logoUrl: null, url: null, price: 50,
+          currencyCode: "GBP", billingCycle: "month", billingInterval: 1,
+          startDate: "2026-01-01", trialEndDate: null, categoryId: null,
+          contextId: null, paymentMethodId: null, notes: null, active: true,
+          notify: true, free: false, cancelled: false, endsOn: null,
+          prepaid: true, depletesOn: "2026-03-01", createdAt: "2026-01-01T00:00:00.000Z",
+        }],
+      },
+    };
+    const res = parseBackup(JSON.stringify(withPrepaid));
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.data.subscriptions[0].prepaid).toBe(true);
+      expect(res.data.data.subscriptions[0].depletesOn).toBe("2026-03-01");
+    }
+
+    // Old backup shape: no prepaid/depletesOn keys on the subscription.
+    const old = JSON.parse(JSON.stringify(withPrepaid));
+    delete old.data.subscriptions[0].prepaid;
+    delete old.data.subscriptions[0].depletesOn;
+    const res2 = parseBackup(JSON.stringify(old));
+    expect(res2.ok).toBe(true);
+    if (res2.ok) {
+      expect(res2.data.data.subscriptions[0].prepaid).toBe(false);
+      expect(res2.data.data.subscriptions[0].depletesOn).toBeNull();
+    }
+  });
 });

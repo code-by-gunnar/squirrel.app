@@ -46,6 +46,8 @@ export type EnrichedSubscription = Subscription & {
   status: SubscriptionStatus;
   isActive: boolean; // usable AND counted toward totals (active or cancelled-not-expired)
   daysUntilEnd: number | null; // days until `endsOn` for a cancelled sub (null otherwise)
+  daysUntilDepletion: number | null; // days until `depletesOn` for a prepaid sub (null if none/not prepaid)
+  depleted: boolean; // prepaid AND depletesOn has passed
 };
 
 /** Derive lifecycle status + effective-active from the stored flags and dates. */
@@ -139,11 +141,16 @@ export function listSubscriptions(
         nextRenewal: toISODate(nextRenewal),
         daysUntil: daysUntilRenewal(sub.startDate, cycle, sub.billingInterval, from),
         priceBase: convertToBase(sub.price, sub.currencyCode, base, rates),
-        monthlyBase: convertToBase(monthlyNative, sub.currencyCode, base, rates),
-        yearlyBase: convertToBase(yearlyNative, sub.currencyCode, base, rates),
+        // A prepaid pack has no recurring monthly cost — its spend lives in the
+        // ledger as one-off charges, so it must not feed normalized totals.
+        monthlyBase: sub.prepaid ? 0 : convertToBase(monthlyNative, sub.currencyCode, base, rates),
+        yearlyBase: sub.prepaid ? 0 : convertToBase(yearlyNative, sub.currencyCode, base, rates),
         status,
         isActive,
         daysUntilEnd,
+        daysUntilDepletion: sub.prepaid && sub.depletesOn ? daysUntilDate(sub.depletesOn, from) : null,
+        depleted:
+          sub.prepaid && sub.depletesOn ? daysUntilDate(sub.depletesOn, from) < 0 : false,
       };
     },
   );
