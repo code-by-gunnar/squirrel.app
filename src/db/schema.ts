@@ -75,6 +75,13 @@ export const subscriptions = sqliteTable(
     // On a free tier: no billing at all. Price is 0, and it's excluded from
     // spend totals, renewals, the calendar and reminders — tracked for awareness.
     free: integer("free", { mode: "boolean" }).notNull().default(false),
+    // Prepaid/credit mode: a one-off pack you buy up front and top up, not a
+    // recurring bill. Excluded from renewal math and the normalized dashboard
+    // total; its charges are recorded manually (one per top-up), not computed.
+    prepaid: integer("prepaid", { mode: "boolean" }).notNull().default(false),
+    // Optional "runs out around" estimate for a prepaid sub — drives the top-up
+    // reminder. Null means no estimate (and no reminder).
+    depletesOn: text("depletes_on"),
     // Cancelled but still usable until `endsOn`. Renewals stop, but the sub stays
     // active (and counted) until that date, after which it reads as inactive.
     // `endsOn` is the ISO date access ends (the end of the last paid period).
