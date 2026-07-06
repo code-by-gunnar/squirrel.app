@@ -73,6 +73,7 @@ export function CalendarView({
     }
     // Prepaid subs: a single "runs out ~" marker on their depletesOn date.
     for (const sub of subscriptions) {
+      if (sub.status !== "active") continue;
       if (!sub.prepaid || !sub.depletesOn) continue;
       if (sub.depletesOn < toISODate(gridStart) || sub.depletesOn > toISODate(gridEnd)) continue;
       const list = map.get(sub.depletesOn) ?? [];

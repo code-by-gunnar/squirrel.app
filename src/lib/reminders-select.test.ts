@@ -31,6 +31,7 @@ describe("selectReminders", () => {
       sub({ name: "P3", prepaid: true, depletesOn: "2099-01-10", daysUntilDepletion: 9 }),  // out
       sub({ name: "P4", prepaid: true, depletesOn: null, daysUntilDepletion: null }), // no estimate → out
       sub({ name: "P5", prepaid: true, depletesOn: "2099-01-04", daysUntilDepletion: 3, notify: false }), // muted → out
+      sub({ name: "P6", prepaid: true, status: "inactive", depletesOn: "2026-03-01", daysUntilDepletion: 0 }), // inactive → out
     ];
     const { topups } = selectReminders(subs, lead);
     expect(topups.map((s) => s.name)).toEqual(["P1", "P2"]);

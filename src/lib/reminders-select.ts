@@ -28,6 +28,7 @@ export function selectReminders<T extends Remindable>(
   );
   const topups = subs.filter(
     (s) =>
+      s.status === "active" &&
       s.prepaid &&
       s.notify &&
       s.depletesOn !== null &&

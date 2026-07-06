@@ -78,7 +78,7 @@ function renewalLabel(days: number): { text: string; tone: string } {
 function statusBadge(
   sub: EnrichedSubscription,
 ): { label: string; className: string } | null {
-  if (sub.prepaid) {
+  if (sub.prepaid && sub.status === "active") {
     return {
       label: "Prepaid",
       className:
@@ -105,7 +105,7 @@ function statusBadge(
 function statusLine(
   sub: EnrichedSubscription,
 ): { text: string; tone: string; sub?: string } {
-  if (sub.prepaid) {
+  if (sub.prepaid && sub.status === "active") {
     if (sub.depletesOn === null) {
       return { text: "Prepaid", tone: "text-muted-foreground" };
     }

@@ -145,7 +145,7 @@ export async function saveSubscription(
   const values = parsed.data;
 
   // Free subs carry no price.
-  if (values.free) values.price = 0;
+  if (values.free && !values.prepaid) values.price = 0;
 
   // Prepaid packs are one-off, never free, never cancelled, and carry no cycle.
   if (values.prepaid) {
