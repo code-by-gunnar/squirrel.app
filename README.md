@@ -50,8 +50,10 @@ immutable start date, so nothing to sync and nothing drifts.
 - **Calendar** — a month view of exactly when each subscription renews.
 - **Reports** — a ledger records every real charge (with the FX rate locked at
   the time), then charts your actual monthly spend over time plus total-spent-to-date
-  and this-year totals. This is real cashflow, distinct from the dashboard's
-  normalized monthly average.
+  and this-year totals. Each month splits into **billed** (actual charges) and
+  **forecast** (scheduled, including the rest of the current month); click a
+  month to see which subscriptions made it up. This is real cashflow, distinct
+  from the dashboard's normalized monthly average.
 - **Personal vs Work contexts** — tag each subscription by area (Personal, Work,
   or your own, managed in Settings), then switch context from the header to
   re-scope every total: the dashboard, calendar and reports all show just that
